@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Feed</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .pagination .page-item .page-link { border-radius: 8px; margin: 0 2px; color: #0d6efd; }
+        .pagination .page-item.active .page-link { background-color: #0d6efd; border-color: #0d6efd; color: white; }
+        .search-sort-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="bg-light">
+<div th:replace="header :: header"></div>
+
+<div class="container my-4">
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+
+            <!-- FORM LỌC -->
+            <form th:action="@{/posts/feed}" method="get" class="search-sort-row">
+                <input type="text" name="tag" class="form-control" placeholder="Tìm theo tag..." th:value="${tag}">
+                <input type="text" name="author" class="form-control" placeholder="Tìm theo tác giả..." th:value="${author}">
+                <input type="number" name="minViews" class="form-control" placeholder="Lượt xem từ" th:value="${minViews}">
+                <input type="number" name="maxViews" class="form-control" placeholder="Đến" th:value="${maxViews}">
+                <select name="sortDir" class="form-select">
+                    <option value="desc" th:selected="${sortDir == 'desc'}">Mới nhất</option>
+                    <option value="asc" th:selected="${sortDir == 'asc'}">Cũ nhất</option>
+                </select>
+                <button class="btn btn-primary" type="submit">🔍 Lọc</button>
+            </form>
+
+            <!-- DANH SÁCH BÀI VIẾT -->
+            <div th:each="p : ${posts}" class="card mb-4 shadow-sm rounded-4 p-3">
+                <h5 class="fw-bold mb-2" th:text="${p.title}"></h5>
+                <p th:text="${p.author}" class="text-muted small"></p>
+                <div class="mb-2" th:utext="${p.content}"></div>
+                <div class="mb-2">
+                    <span th:each="tag : ${p.tags}" class="badge bg-primary me-1 mb-1" th:text="'#' + ${tag}"></span>
+                </div>
+                <div class="text-muted small">
+                    👁 <span th:text="${p.views}"></span> lượt xem |
+                    <a th:href="@{/posts/view/{id}(id=${p.id})}" class="text-decoration-none">Xem chi tiết</a>
+                </div>
+            </div>
+
+            <!-- PHÂN TRANG GIỮ THAM SỐ -->
+            <nav th:if="${totalPages > 1}">
+                <ul class="pagination justify-content-center mt-4 flex-wrap">
+
+                    <!-- Nút Trước -->
+                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                        <a class="page-link"
+                           th:href="@{/posts/feed(page=${currentPage - 1},
+                                sortDir=${sortDir},
+                                tag=${tag},
+                                author=${author},
+                                minViews=${minViews},
+                                maxViews=${maxViews})}">
+                            &laquo; Trước
+                        </a>
+                    </li>
+
+                    <!-- Các trang -->
+                    <li th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
+                        class="page-item"
+                        th:classappend="${i == currentPage} ? 'active'">
+                        <a class="page-link"
+                           th:text="${i + 1}"
+                           th:href="@{/posts/feed(page=${i},
+                                sortDir=${sortDir},
+                                tag=${tag},
+                                author=${author},
+                                minViews=${minViews},
+                                maxViews=${maxViews})}"></a>
+                    </li>
+
+                    <!-- Nút Sau -->
+                    <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                        <a class="page-link"
+                           th:href="@{/posts/feed(page=${currentPage + 1},
+                                sortDir=${sortDir},
+                                tag=${tag},
+                                author=${author},
+                                minViews=${minViews},
+                                maxViews=${maxViews})}">
+                            Sau &raquo;
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-warning text-dark fw-bold">⭐ Bài nổi bật</div>
+                <ul class="list-group list-group-flush">
+                    <li th:each="p : ${featured}" class="list-group-item d-flex justify-content-between align-items-center">
+                        <a th:href="@{/posts/view/{id}(id=${p.id})}" th:text="${p.title}" class="text-decoration-none"></a>
+                        <span class="badge bg-primary rounded-pill" th:text="${p.views}"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card shadow-sm rounded-4">
+                <div class="card-header bg-success text-white fw-bold">🏆 Top bài xem nhiều</div>
+                <ul class="list-group list-group-flush">
+                    <li th:each="p : ${topPosts}" class="list-group-item d-flex justify-content-between align-items-center">
+                        <a th:href="@{/posts/view/{id}(id=${p.id})}" th:text="${p.title}" class="text-decoration-none"></a>
+                        <span class="text-muted small"><i class="bi bi-eye"></i> <span th:text="${p.views}"></span></span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
