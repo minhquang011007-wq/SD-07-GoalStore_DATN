@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
-
+ 
     private final PostService postService;
     private final UserService userService; // ✅ thêm dòng này
 
