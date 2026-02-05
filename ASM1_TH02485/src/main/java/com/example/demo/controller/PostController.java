@@ -26,6 +26,7 @@ public class PostController {
     @GetMapping({"", "/"})
     public String rootRedirect() {
         return "redirect:/posts/feed?page=0&sortDir=desc";
+        //comment o mapping
     }
 
     @GetMapping("/feed")
