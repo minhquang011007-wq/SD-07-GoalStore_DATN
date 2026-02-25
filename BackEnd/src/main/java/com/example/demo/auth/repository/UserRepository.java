@@ -1,0 +1,4 @@
+package com.example.demo.auth.repository;
+
+public class UserRepository {
+}
