@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import Navbar from "@/components/Navbar.vue";
 import Footer from "@/components/Footer.vue";
@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
-  LogOut
+  LogOut,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -27,42 +27,48 @@ const isMobile = ref(false);
 // ====== ROLE ======
 const role = ref<string>(localStorage.getItem("role") || "");
 
-// lắng nghe thay đổi localStorage (nếu m login/logout ở tab khác)
 const handleStorage = (e: StorageEvent) => {
-  if (e.key === "role") role.value = localStorage.getItem("role") || "";
+  if (e.key === "role" || e.key === "token") {
+    role.value = localStorage.getItem("role") || "";
+  }
 };
 
 // ====== MENU (gắn roles) ======
+type RoleType = "ADMIN" | "SALES";
 type NavItem = {
   name: string;
   path: string;
   icon: any;
-  roles?: Array<"ADMIN" | "SALES">;
+  roles?: RoleType[];
 };
 
+/**
+ * NOTE:
+ * - ADMIN vào /admin
+ * - SALES vào /sales
+ * M có thể đổi menu theo module thật sau.
+ */
 const navigation: NavItem[] = [
-  { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "SALES"] },
-  { name: "Contacts", path: "/contacts", icon: Users, roles: ["ADMIN", "SALES"] },
+  // home theo role
+  { name: "Admin Home", path: "/admin", icon: LayoutDashboard, roles: ["ADMIN"] },
+  { name: "Sales Home", path: "/sales", icon: LayoutDashboard, roles: ["SALES"] },
 
-  // Admin-only ví dụ
+  // ví dụ module chung
+  { name: "Contacts", path: "/contacts", icon: Users, roles: ["ADMIN", "SALES"] },
+  { name: "Deals", path: "/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"] },
+  { name: "Tasks", path: "/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"] },
+  { name: "Docs", path: "/docs", icon: BookOpen, roles: ["ADMIN", "SALES"] },
+
+  // admin-only ví dụ
   { name: "Companies", path: "/companies", icon: Building2, roles: ["ADMIN"] },
   { name: "Reports", path: "/reports", icon: BarChart3, roles: ["ADMIN"] },
   { name: "Billing", path: "/billing", icon: CreditCard, roles: ["ADMIN"] },
   { name: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
-
-  // Sales + Admin
-  { name: "Deals", path: "/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"] },
-  { name: "Tasks", path: "/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"] },
-
-  // ai cũng xem được
-  { name: "Docs", path: "/docs", icon: BookOpen, roles: ["ADMIN", "SALES"] }
 ];
 
-// lọc menu theo role hiện tại
 const filteredNavigation = computed(() => {
-  // nếu chưa có role (chưa login) thì trả rỗng
   if (!role.value) return [];
-  return navigation.filter((item) => !item.roles || item.roles.includes(role.value as any));
+  return navigation.filter((item) => !item.roles || item.roles.includes(role.value as RoleType));
 });
 
 // ====== UI ======
@@ -79,13 +85,32 @@ const closeSidebarOnMobile = () => {
   if (isMobile.value) sidebarOpen.value = false;
 };
 
-// ====== Logout (tuỳ chọn) ======
+// ====== Logout ======
 const logout = () => {
+  console.log("LOGOUT CLICKED");
   localStorage.removeItem("token");
   localStorage.removeItem("role");
+  localStorage.removeItem("username");
   role.value = "";
-  router.push("/login");
+  router.replace("/login");
 };
+
+// ====== helper: redirect về trang đúng role nếu cần ======
+const goHomeByRole = () => {
+  if (role.value === "ADMIN") router.replace("/admin");
+  else if (role.value === "SALES") router.replace("/sales");
+};
+
+watch(
+  () => role.value,
+  () => {
+    // nếu đang ở MainLayout mà role đổi (login/logout) thì điều hướng hợp lý
+    if (!role.value) return; // logout -> router guard sẽ đá về /login
+    // nếu user vào sai khu vực, đá về home đúng role
+    if (role.value === "ADMIN" && route.path.startsWith("/sales")) goHomeByRole();
+    if (role.value === "SALES" && route.path.startsWith("/admin")) goHomeByRole();
+  }
+);
 
 onMounted(() => {
   checkMobile();
@@ -119,7 +144,7 @@ onUnmounted(() => {
       <!-- Header -->
       <div class="p-4 border-b flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <h3 v-if="sidebarOpen" class="text-sm font-semibold">Material Shadcn Vue</h3>
+          <h3 v-if="sidebarOpen" class="text-sm font-semibold">GoalStore Admin</h3>
           <span v-if="sidebarOpen && role" class="text-xs text-muted-foreground">({{ role }})</span>
         </div>
 
