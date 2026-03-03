@@ -196,3 +196,9 @@ PRINT N'✅ DATN simplified database created successfully.';
 GO
 
 Select * from Users;
+
+SELECT username, password FROM Users WHERE username='admin';
+
+UPDATE Users
+SET password = '$2a$10$vKXNUqVMjvHQqPAM0t9Ug.Gm1MGQumgoBbeWZj.ip34B9b07Vi8zu'
+WHERE username = 'admin';
