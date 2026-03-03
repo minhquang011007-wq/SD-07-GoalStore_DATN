@@ -9,7 +9,7 @@ END
 GO
 
 CREATE DATABASE DATN;
-GO
+GO 
 USE DATN;
 GO
 
@@ -202,3 +202,27 @@ SELECT username, password FROM Users WHERE username='admin';
 UPDATE Users
 SET password = '$2a$10$vKXNUqVMjvHQqPAM0t9Ug.Gm1MGQumgoBbeWZj.ip34B9b07Vi8zu'
 WHERE username = 'admin';
+
+/* ================================
+   SEED USERS (BCrypt password)
+   Password (plain): 123456
+================================ */
+-- Xoá nếu đã có (khi không reset DB hoặc chạy lại seed)
+DELETE FROM Users;
+GO
+
+-- BCrypt hash mẫu cho "123456"
+DECLARE @HASH_123456 VARCHAR(255) = '$2a$10$vKXNUqVMjvHQqPAM0t9Ug.Gm1MGQumgoBbeWZj.ip34B9b07Vi8zu';
+
+INSERT INTO Users(username, email, [password], role, trang_thai)
+VALUES
+('admin',     'admin@gmail.com',     @HASH_123456, 'ADMIN',     'ACTIVE'),
+('sales01',   'sales01@gmail.com',   @HASH_123456, 'SALES',     'ACTIVE'),
+('inv01',     'inv01@gmail.com',     @HASH_123456, 'INVENTORY', 'ACTIVE');
+GO
+
+PRINT N'✅ Seeded users: ADMIN / SALES / INVENTORY (password: 123456)';
+GO
+
+SELECT id, username, email, role, trang_thai, created_at FROM Users;
+GO
