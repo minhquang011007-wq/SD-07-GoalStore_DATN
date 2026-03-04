@@ -1,65 +1,59 @@
-import {createRouter, createWebHistory} from 'vue-router'
-import MainLayout from '@/layouts/MainLayout.vue'
+import { createRouter, createWebHistory } from "vue-router"
+import MainLayout from "@/layouts/MainLayout.vue"
 
 const router = createRouter({
-    history: createWebHistory('/material-dashboard-shadcn-vue/'),
-    routes: [
+  history: createWebHistory(),
+  routes: [
+    {
+      path: "/login",
+      component: () => import("@/views/Login.vue"),
+    },
+    {
+      path: "/",
+      component: MainLayout,
+      children: [
         {
-            path: '/',
-            component: MainLayout,
-            children: [
-                {
-                    path: '',
-                    redirect: '/dashboard'
-                },
-                {
-                    path: 'dashboard',
-                    name: 'Dashboard',
-                    component: () => import('@/views/Dashboard.vue')
-                },
-                {
-                    path: 'contacts',
-                    name: 'Contacts',
-                    component: () => import('@/views/Contacts.vue')
-                },
-                {
-                    path: 'companies',
-                    name: 'Companies',
-                    component: () => import('@/views/Companies.vue')
-                },
-                {
-                    path: 'deals',
-                    name: 'Deals',
-                    component: () => import('@/views/Deals.vue')
-                },
-                {
-                    path: 'tasks',
-                    name: 'Tasks',
-                    component: () => import('@/views/Tasks.vue')
-                },
-                {
-                    path: 'reports',
-                    name: 'Reports',
-                    component: () => import('@/views/Reports.vue')
-                },
-                {
-                    path: 'billing',
-                    name: 'Billing',
-                    component: () => import('@/views/Billing.vue')
-                },
-                {
-                    path: 'settings',
-                    name: 'Settings',
-                    component: () => import('@/views/Settings.vue')
-                },
-                {
-                    path: 'docs',
-                    name: 'Docs',
-                    component: () => import('@/views/Docs.vue')
-                }
-            ]
-        }
-    ]
+          path: "",
+          redirect: "/login",
+        },
+        {
+          path: "admin",
+          component: () => import("@/views/AdminHome.vue"),
+        },
+        {
+          path: "sales",
+          component: () => import("@/views/SalesHome.vue"),
+        },
+      ],
+    },
+  ],
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem("token")
+  const role = localStorage.getItem("role")
+
+  // 🚫 chưa login thì luôn về login
+  if (!token && to.path !== "/login") {
+    return next("/login")
+  }
+
+  // ✅ đã login mà vào /login thì redirect đúng role
+  if (token && to.path === "/login") {
+    if (role === "ADMIN") return next("/admin")
+    if (role === "SALES") return next("/sales")
+  }
+
+  // 🔐 chặn sai role
+  if (to.path.startsWith("/admin") && role !== "ADMIN") {
+    return next("/sales")
+  }
+
+  if (to.path.startsWith("/sales") && role !== "SALES") {
+    return next("/admin")
+  }
+
+  next()
 })
 
 export default router
