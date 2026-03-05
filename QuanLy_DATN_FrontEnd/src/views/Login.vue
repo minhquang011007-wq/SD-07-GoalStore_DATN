@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import api from "@/lib/api";
+import api from "@/app/lib/api";
 
 const router = useRouter();
 
