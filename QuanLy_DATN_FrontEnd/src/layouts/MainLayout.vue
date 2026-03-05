@@ -34,7 +34,7 @@ const handleStorage = (e: StorageEvent) => {
 };
 
 // ====== MENU (gắn roles) ======
-type RoleType = "ADMIN" | "SALES";
+type RoleType = "ADMIN" | "SALES" | "INVENTORY";
 type NavItem = {
   name: string;
   path: string;
