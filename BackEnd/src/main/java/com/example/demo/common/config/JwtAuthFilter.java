@@ -1,4 +1,4 @@
-package com.example.demo.auth.config;
+package com.example.demo.common.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -37,7 +37,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var auth = new UsernamePasswordAuthenticationToken(
                         username,
                         null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                        List.of(new SimpleGrantedAuthority("ROLE_ " + role))
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(auth);
