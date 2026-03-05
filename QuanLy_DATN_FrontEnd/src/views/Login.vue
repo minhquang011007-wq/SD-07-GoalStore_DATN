@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import api from "@/lib/api";
+import api from "@/app/lib/api";
 
 const router = useRouter();
 
@@ -62,14 +62,10 @@ async function handleLogin() {
     localStorage.setItem("username", res.data.username);
 
     // ✅ Redirect theo role
-    if (res.data.role === "ADMIN") {
-      router.push("/admin");
-    } else if (res.data.role === "SALES") {
-      router.push("/sales");
-    } else {
-      // fallback nếu role lạ
-      router.push("/login");
-    }
+    if (res.data.role === "ADMIN") router.push("/admin")
+    else if (res.data.role === "SALES") router.push("/sales")
+    else if (res.data.role === "INVENTORY") router.push("/inventory")
+    else router.push("/login")
   } catch (e: any) {
     // nếu BE có trả message thì lấy, không thì dùng default
     error.value =
