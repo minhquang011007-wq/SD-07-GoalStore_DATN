@@ -1,5 +1,6 @@
-package com.example.demo.auth.config;
+package com.example.demo.auth.controller;
 
+import com.example.demo.auth.config.JwtTokenProvider;
 import com.example.demo.auth.dto.LoginRequest;
 import com.example.demo.auth.dto.LoginResponse;
 import com.example.demo.auth.entity.User;
