@@ -30,8 +30,8 @@ public class ProductHistory {
     @Column(name = "note")
     private String note;
 
-    @Column(name = "changed_by", nullable = false, length = 100)
-    private String changedBy;
+    @Column(name = "changed_by")
+    private Integer changedBy;
 
     @CreationTimestamp
     @Column(name = "changed_at", updatable = false)

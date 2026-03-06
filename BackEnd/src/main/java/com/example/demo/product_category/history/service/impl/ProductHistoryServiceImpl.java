@@ -1,5 +1,7 @@
 package com.example.demo.product_category.history.service.impl;
 
+import com.example.demo.auth.entity.User;
+import com.example.demo.auth.repository.UserRepository;
 import com.example.demo.product_category.history.dto.ProductHistoryResponse;
 import com.example.demo.product_category.history.entity.ProductHistory;
 import com.example.demo.product_category.history.repository.ProductHistoryRepository;
@@ -18,6 +20,7 @@ import java.util.List;
 @Transactional
 public class ProductHistoryServiceImpl implements ProductHistoryService {
     private final ProductHistoryRepository repository;
+    private final UserRepository userRepository;
 
     @Override
     public void log(Product product, String action, String note) {
@@ -25,7 +28,7 @@ public class ProductHistoryServiceImpl implements ProductHistoryService {
                 .product(product)
                 .action(action)
                 .note(note)
-                .changedBy(resolveUsername())
+                .changedBy(resolveUserId())
                 .build());
     }
 
@@ -45,9 +48,17 @@ public class ProductHistoryServiceImpl implements ProductHistoryService {
                 .toList();
     }
 
-    private String resolveUsername() {
+    private Integer resolveUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return "SYSTEM";
-        return auth.getName();
+
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return null;
+        }
+
+        String username = auth.getName();
+
+        return userRepository.findByUsername(username)
+                .map(User::getId)
+                .orElse(null);
     }
 }

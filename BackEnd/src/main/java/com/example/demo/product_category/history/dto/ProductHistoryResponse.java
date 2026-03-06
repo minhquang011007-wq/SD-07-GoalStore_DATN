@@ -15,6 +15,6 @@ public class ProductHistoryResponse {
     private String productName;
     private String action;
     private String note;
-    private String changedBy;
+    private Integer changedBy;
     private LocalDateTime changedAt;
 }
