@@ -1,4 +1,4 @@
 package com.example.demo.customer.repository;
 
-public class a {
+public class CustomerRepository {
 }
