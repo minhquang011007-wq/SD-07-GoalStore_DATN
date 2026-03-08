@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -70,8 +71,34 @@ public class ProductVariantServiceImpl implements ProductVariantService {
 
     @Override
     @Transactional(readOnly = true)
+    public ProductVariantResponse getDetail(Integer id) {
+        return ProductMapper.toVariantResponse(getEntity(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductVariantResponse> findByProduct(Integer productId) {
         return variantRepository.findByProductIdOrderByIdAsc(productId).stream()
+                .map(ProductMapper::toVariantResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductVariantResponse> search(Integer productId, String keyword, VariantStockStatus stockStatus) {
+        List<ProductVariant> variants;
+        if (keyword != null && !keyword.isBlank()) {
+            variants = variantRepository.findByProductIdAndSkuContainingIgnoreCaseOrProductIdAndColorContainingIgnoreCaseOrProductIdAndSizeContainingIgnoreCase(
+                    productId, keyword.trim(), productId, keyword.trim(), productId, keyword.trim());
+        } else if (stockStatus != null) {
+            variants = variantRepository.findByProductIdAndStockStatusOrderByIdAsc(productId, stockStatus);
+        } else {
+            variants = variantRepository.findByProductIdOrderByIdAsc(productId);
+        }
+
+        return variants.stream()
+                .filter(v -> stockStatus == null || v.getStockStatus() == stockStatus)
+                .sorted(Comparator.comparing(ProductVariant::getId))
                 .map(ProductMapper::toVariantResponse)
                 .toList();
     }

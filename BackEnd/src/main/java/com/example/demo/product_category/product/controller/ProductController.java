@@ -2,6 +2,8 @@ package com.example.demo.product_category.product.controller;
 
 import com.example.demo.product_category.common.dto.PageResponse;
 import com.example.demo.product_category.common.enums.ProductDisplayStatus;
+import com.example.demo.product_category.common.enums.ProductType;
+import com.example.demo.product_category.common.enums.TargetGender;
 import com.example.demo.product_category.common.enums.VariantStockStatus;
 import com.example.demo.product_category.product.dto.*;
 import com.example.demo.product_category.product.service.ProductService;
@@ -11,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,11 @@ public class ProductController {
         return productService.quickUpdate(id, request);
     }
 
+    @PatchMapping("/{id}/hide-if-out-of-stock")
+    public ProductDetailResponse hideIfOutOfStock(@PathVariable Integer id) {
+        return productService.hideWhenOutOfStock(id);
+    }
+
     @PatchMapping("/batch-update")
     public List<ProductDetailResponse> batchUpdate(@Valid @RequestBody ProductBatchUpdateRequest request) {
         return productService.batchUpdate(request);
@@ -46,7 +54,13 @@ public class ProductController {
         productService.delete(id);
     }
 
-    @GetMapping("/{id}")
+    @DeleteMapping("/{id}/hard")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void hardDelete(@PathVariable Integer id) {
+        productService.hardDelete(id);
+    }
+
+    @GetMapping("/{id:\\d+}")
     public ProductDetailResponse getDetail(@PathVariable Integer id) {
         return productService.getDetail(id);
     }
@@ -65,9 +79,27 @@ public class ProductController {
             @RequestParam(required = false) VariantStockStatus stockStatus,
             @RequestParam(required = false) Boolean hideOutOfStock,
             @RequestParam(required = false) Integer createdWithinDays,
-            @RequestParam(required = false, defaultValue = "newest") String sort) {
+            @RequestParam(required = false, defaultValue = "newest") String sort,
+            @RequestParam(required = false) ProductType productType,
+            @RequestParam(required = false) TargetGender targetGender,
+            @RequestParam(required = false) Integer releaseYear,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false, defaultValue = "false") Boolean categoryMatchAll) {
+
         return productService.search(page, size, keyword, parseIds(categoryIds), parseIds(tagIds), displayStatus,
-                brand, material, inStock, stockStatus, hideOutOfStock, createdWithinDays, sort);
+                brand, material, inStock, stockStatus, hideOutOfStock, createdWithinDays, sort,
+                productType, targetGender, releaseYear, minPrice, maxPrice, categoryMatchAll);
+    }
+
+    @GetMapping("/by-category/{categoryId}")
+    public List<ProductSummaryResponse> findByCategory(@PathVariable Integer categoryId) {
+        return productService.findByCategory(categoryId);
+    }
+
+    @GetMapping("/by-tag/{tagId}")
+    public List<ProductSummaryResponse> findByTag(@PathVariable Integer tagId) {
+        return productService.findByTag(tagId);
     }
 
     @GetMapping("/top-selling")

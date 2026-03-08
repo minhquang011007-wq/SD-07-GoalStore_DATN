@@ -9,11 +9,13 @@ import com.example.demo.product_category.common.exception.BadRequestException;
 import com.example.demo.product_category.common.exception.ResourceNotFoundException;
 import com.example.demo.product_category.common.mapper.ProductMapper;
 import com.example.demo.product_category.common.storage.FileStorageService;
+import com.example.demo.product_category.product.dto.ProductSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -60,7 +62,34 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAll() {
         return categoryRepository.findAll().stream()
+                .sorted(Comparator.comparing(Category::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(ProductMapper::toCategoryResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CategoryResponse getDetail(Integer id) {
+        return ProductMapper.toCategoryResponse(getEntity(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> search(String keyword) {
+        return categoryRepository.findByNameContainingIgnoreCaseOrderByNameAsc(keyword.trim()).stream()
+                .map(ProductMapper::toCategoryResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductSummaryResponse> findProductsByCategory(Integer id) {
+        Category category = categoryRepository.findWithProductsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy category id = " + id));
+        return category.getProducts().stream()
+                .filter(p -> Boolean.FALSE.equals(p.getDeleted()))
+                .map(ProductMapper::toSummary)
+                .sorted(Comparator.comparing(ProductSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .toList();
     }
 

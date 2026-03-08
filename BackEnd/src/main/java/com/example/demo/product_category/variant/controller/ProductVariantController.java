@@ -1,5 +1,6 @@
 package com.example.demo.product_category.variant.controller;
 
+import com.example.demo.product_category.common.enums.VariantStockStatus;
 import com.example.demo.product_category.variant.dto.ProductVariantRequest;
 import com.example.demo.product_category.variant.dto.ProductVariantResponse;
 import com.example.demo.product_category.variant.service.ProductVariantService;
@@ -36,8 +37,20 @@ public class ProductVariantController {
         variantService.delete(id);
     }
 
+    @GetMapping("/api/variants/{id}")
+    public ProductVariantResponse getDetail(@PathVariable Integer id) {
+        return variantService.getDetail(id);
+    }
+
     @GetMapping("/api/products/{productId}/variants")
-    public List<ProductVariantResponse> findByProduct(@PathVariable Integer productId) {
+    public List<ProductVariantResponse> findByProduct(
+            @PathVariable Integer productId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) VariantStockStatus stockStatus
+    ) {
+        if ((keyword != null && !keyword.isBlank()) || stockStatus != null) {
+            return variantService.search(productId, keyword, stockStatus);
+        }
         return variantService.findByProduct(productId);
     }
 }

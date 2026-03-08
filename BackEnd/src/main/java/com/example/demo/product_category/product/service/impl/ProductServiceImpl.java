@@ -4,6 +4,8 @@ import com.example.demo.product_category.category.entity.Category;
 import com.example.demo.product_category.category.repository.CategoryRepository;
 import com.example.demo.product_category.common.dto.PageResponse;
 import com.example.demo.product_category.common.enums.ProductDisplayStatus;
+import com.example.demo.product_category.common.enums.ProductType;
+import com.example.demo.product_category.common.enums.TargetGender;
 import com.example.demo.product_category.common.enums.VariantStockStatus;
 import com.example.demo.product_category.common.exception.BadRequestException;
 import com.example.demo.product_category.common.exception.ResourceNotFoundException;
@@ -118,6 +120,29 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public void hardDelete(Integer id) {
+        Product product = getEntity(id);
+        productHistoryService.log(product, "HARD_DELETE", "Xóa cứng sản phẩm");
+        productRepository.delete(product);
+    }
+
+    @Override
+    public ProductDetailResponse hideWhenOutOfStock(Integer id) {
+        Product product = getEntity(id);
+        int totalStock = product.getVariants() == null ? 0 : product.getVariants().stream()
+                .map(v -> v.getStockQuantity() == null ? 0 : v.getStockQuantity())
+                .mapToInt(Integer::intValue)
+                .sum();
+        if (totalStock > 0) {
+            throw new BadRequestException("Sản phẩm vẫn còn hàng, không thể ẩn tự động");
+        }
+        product.setDisplayStatus(ProductDisplayStatus.AN);
+        Product saved = productRepository.save(product);
+        productHistoryService.log(saved, "HIDE_OUT_OF_STOCK", "Ẩn sản phẩm do hết hàng");
+        return ProductMapper.toDetail(saved);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ProductDetailResponse getDetail(Integer id) {
         return ProductMapper.toDetail(productRepository.findDetailById(id)
@@ -130,7 +155,10 @@ public class ProductServiceImpl implements ProductService {
                                                        Set<Integer> tagIds, ProductDisplayStatus displayStatus,
                                                        String brand, String material, Boolean inStock,
                                                        VariantStockStatus stockStatus, Boolean hideOutOfStock,
-                                                       Integer createdWithinDays, String sort) {
+                                                       Integer createdWithinDays, String sort,
+                                                       ProductType productType, TargetGender targetGender,
+                                                       Integer releaseYear, BigDecimal minPrice, BigDecimal maxPrice,
+                                                       Boolean categoryMatchAll) {
         Specification<Product> specification = Specification.where(ProductSpecifications.notDeleted())
                 .and(ProductSpecifications.keyword(keyword))
                 .and(ProductSpecifications.categoryIds(categoryIds))
@@ -141,10 +169,16 @@ public class ProductServiceImpl implements ProductService {
                 .and(ProductSpecifications.onlyInStock(inStock))
                 .and(ProductSpecifications.stockStatus(stockStatus))
                 .and(ProductSpecifications.hideOutOfStock(hideOutOfStock))
-                .and(ProductSpecifications.createdWithinDays(createdWithinDays));
+                .and(ProductSpecifications.createdWithinDays(createdWithinDays))
+                .and(ProductSpecifications.productType(productType))
+                .and(ProductSpecifications.targetGender(targetGender))
+                .and(ProductSpecifications.releaseYear(releaseYear))
+                .and(ProductSpecifications.priceBetween(minPrice, maxPrice));
 
         Map<Integer, Long> soldMap = buildSoldMap();
         List<ProductSummaryResponse> all = productRepository.findAll(specification).stream()
+                .filter(p -> !Boolean.TRUE.equals(categoryMatchAll) || categoryIds == null || categoryIds.isEmpty() ||
+                        p.getCategories().stream().map(c -> c.getId()).collect(java.util.stream.Collectors.toSet()).containsAll(categoryIds))
                 .map(p -> ProductMapper.toSummary(p, soldMap.getOrDefault(p.getId(), 0L)))
                 .sorted(buildComparator(sort))
                 .toList();
@@ -178,6 +212,36 @@ public class ProductServiceImpl implements ProductService {
         Map<Integer, Long> soldMap = buildSoldMap();
         return productRepository.findNewestProducts(org.springframework.data.domain.PageRequest.of(0, limit)).stream()
                 .map(p -> ProductMapper.toSummary(p, soldMap.getOrDefault(p.getId(), 0L)))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductSummaryResponse> findByCategory(Integer categoryId) {
+        if (!categoryRepository.existsById(categoryId)) {
+            throw new ResourceNotFoundException("Không tìm thấy category id = " + categoryId);
+        }
+        Map<Integer, Long> soldMap = buildSoldMap();
+        return productRepository.findAll(Specification.where(ProductSpecifications.notDeleted())
+                .and(ProductSpecifications.categoryIds(Set.of(categoryId))))
+                .stream()
+                .map(p -> ProductMapper.toSummary(p, soldMap.getOrDefault(p.getId(), 0L)))
+                .sorted(buildComparator("newest"))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductSummaryResponse> findByTag(Integer tagId) {
+        if (!tagRepository.existsById(tagId)) {
+            throw new ResourceNotFoundException("Không tìm thấy tag id = " + tagId);
+        }
+        Map<Integer, Long> soldMap = buildSoldMap();
+        return productRepository.findAll(Specification.where(ProductSpecifications.notDeleted())
+                .and(ProductSpecifications.tagIds(Set.of(tagId))))
+                .stream()
+                .map(p -> ProductMapper.toSummary(p, soldMap.getOrDefault(p.getId(), 0L)))
+                .sorted(buildComparator("newest"))
                 .toList();
     }
 

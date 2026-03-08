@@ -3,6 +3,7 @@ package com.example.demo.product_category.category.controller;
 import com.example.demo.product_category.category.dto.CategoryRequest;
 import com.example.demo.product_category.category.dto.CategoryResponse;
 import com.example.demo.product_category.category.service.CategoryService;
+import com.example.demo.product_category.product.dto.ProductSummaryResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,8 +38,18 @@ public class CategoryController {
     }
 
     @GetMapping
-    public List<CategoryResponse> findAll() {
-        return categoryService.findAll();
+    public List<CategoryResponse> findAll(@RequestParam(required = false) String keyword) {
+        return (keyword == null || keyword.isBlank()) ? categoryService.findAll() : categoryService.search(keyword);
+    }
+
+    @GetMapping("/{id}")
+    public CategoryResponse getDetail(@PathVariable Integer id) {
+        return categoryService.getDetail(id);
+    }
+
+    @GetMapping("/{id}/products")
+    public List<ProductSummaryResponse> getProducts(@PathVariable Integer id) {
+        return categoryService.findProductsByCategory(id);
     }
 
     @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
