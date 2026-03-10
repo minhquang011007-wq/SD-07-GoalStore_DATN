@@ -1,2 +1,4 @@
-package com.example.demo.common.audit;public class AuditInterceptor {
+package com.example.demo.common.audit;
+
+public class AuditInterceptor {
 }
