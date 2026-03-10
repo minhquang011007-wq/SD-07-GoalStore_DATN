@@ -1,9 +1,9 @@
-package com.example.demo.common.service;
+package com.example.demo.audit.service;
 
 
-import com.example.demo.common.dto.response.AuditLogResponse;
-import com.example.demo.common.entity.AuditLogEntity;
-import com.example.demo.common.repository.AuditLogRepository;
+import com.example.demo.audit.dto.response.AuditLogResponse;
+import com.example.demo.audit.entity.AuditLogEntity;
+import com.example.demo.audit.repository.AuditLogRepository;
 import com.example.demo.user.entity.UserEntity;
 import com.example.demo.user.repository.URepository;
 import jakarta.persistence.criteria.Predicate;

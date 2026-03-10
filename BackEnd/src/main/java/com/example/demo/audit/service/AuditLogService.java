@@ -1,6 +1,6 @@
-package com.example.demo.common.service;
+package com.example.demo.audit.service;
 
-import com.example.demo.common.dto.response.AuditLogResponse;
+import com.example.demo.audit.dto.response.AuditLogResponse;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;

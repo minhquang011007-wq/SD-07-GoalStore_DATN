@@ -1,7 +1,7 @@
-package com.example.demo.common.repository;
+package com.example.demo.audit.repository;
 
 
-import com.example.demo.common.entity.AuditLogEntity;
+import com.example.demo.audit.entity.AuditLogEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
