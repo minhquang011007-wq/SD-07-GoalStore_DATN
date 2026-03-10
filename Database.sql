@@ -226,3 +226,88 @@ GO
 
 SELECT id, username, email, role, trang_thai, created_at FROM Users;
 GO
+
+/* ================================
+   PERMISSIONS
+================================ */
+CREATE TABLE Permissions (
+    id INT IDENTITY PRIMARY KEY,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name NVARCHAR(150) NOT NULL,
+    module VARCHAR(50) NOT NULL
+);
+GO
+
+/* ================================
+   ROLE_PERMISSIONS
+================================ */
+CREATE TABLE Role_Permissions (
+    id INT IDENTITY PRIMARY KEY,
+    role VARCHAR(20) NOT NULL,
+    permission_id INT NOT NULL,
+    CONSTRAINT FK_RolePermissions_Permission
+        FOREIGN KEY (permission_id) REFERENCES Permissions(id) ON DELETE CASCADE,
+    CONSTRAINT UQ_RolePermissions UNIQUE (role, permission_id),
+    CONSTRAINT CK_RolePermissions_Role CHECK (role IN ('ADMIN','SALES','INVENTORY'))
+);
+GO
+
+CREATE INDEX IX_RolePermissions_Role ON Role_Permissions(role);
+GO
+
+/* ================================
+   SEED PERMISSIONS
+================================ */
+INSERT INTO Permissions(code, name, module)
+VALUES
+('USER_VIEW',           N'Xem danh sách user',         'USER'),
+('USER_CREATE',         N'Tạo user',                   'USER'),
+('USER_UPDATE',         N'Cập nhật user',              'USER'),
+('USER_DELETE',         N'Xóa user',                   'USER'),
+('USER_CHANGE_STATUS',  N'Đổi trạng thái user',        'USER'),
+('USER_RESET_PASSWORD', N'Reset mật khẩu user',        'USER'),
+
+('AUDIT_VIEW',          N'Xem audit log',              'AUDIT'),
+
+('PRODUCT_VIEW',        N'Xem sản phẩm',               'PRODUCT'),
+('PRODUCT_CREATE',      N'Tạo sản phẩm',               'PRODUCT'),
+('PRODUCT_UPDATE',      N'Cập nhật sản phẩm',          'PRODUCT'),
+('PRODUCT_DELETE',      N'Xóa sản phẩm',               'PRODUCT'),
+
+('ORDER_VIEW',          N'Xem đơn hàng',               'ORDER'),
+('ORDER_CREATE',        N'Tạo đơn hàng',               'ORDER'),
+('ORDER_UPDATE',        N'Cập nhật đơn hàng',          'ORDER'),
+('ORDER_CHANGE_STATUS', N'Đổi trạng thái đơn hàng',    'ORDER'),
+
+('CUSTOMER_VIEW',       N'Xem khách hàng',             'CUSTOMER'),
+('CUSTOMER_CREATE',     N'Tạo khách hàng',             'CUSTOMER'),
+('CUSTOMER_UPDATE',     N'Cập nhật khách hàng',        'CUSTOMER'),
+
+('ROLE_PERMISSION_VIEW',   N'Xem phân quyền',          'ROLE'),
+('ROLE_PERMISSION_UPDATE', N'Cập nhật phân quyền',     'ROLE');
+GO
+
+/* ================================
+   SEED ROLE PERMISSIONS
+================================ */
+INSERT INTO Role_Permissions(role, permission_id)
+SELECT 'ADMIN', id FROM Permissions;
+GO
+
+INSERT INTO Role_Permissions(role, permission_id)
+SELECT 'SALES', id
+FROM Permissions
+WHERE code IN (
+    'ORDER_VIEW','ORDER_CREATE','ORDER_UPDATE','ORDER_CHANGE_STATUS',
+    'CUSTOMER_VIEW','CUSTOMER_CREATE','CUSTOMER_UPDATE',
+    'PRODUCT_VIEW'
+);
+GO
+
+INSERT INTO Role_Permissions(role, permission_id)
+SELECT 'INVENTORY', id
+FROM Permissions
+WHERE code IN (
+    'PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE','PRODUCT_DELETE'
+);
+GO

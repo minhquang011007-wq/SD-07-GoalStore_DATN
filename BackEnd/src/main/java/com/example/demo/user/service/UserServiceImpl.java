@@ -7,6 +7,8 @@ import com.example.demo.user.dto.request.UserStatusRequest;
 import com.example.demo.user.dto.request.UserUpdateRequest;
 import com.example.demo.user.dto.response.UserResponse;
 import com.example.demo.user.entity.UserEntity;
+import com.example.demo.user.exception.BadRequestException;
+import com.example.demo.user.exception.ResourceNotFoundException;
 import com.example.demo.user.repository.URepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -50,19 +52,19 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse getUserById(Integer id) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với id = " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với id = " + id));
         return mapToResponse(user);
     }
 
     @Override
     public UserResponse createUser(UserCreateRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username đã tồn tại");
+            throw new BadRequestException("Username đã tồn tại");
         }
 
         if (request.getEmail() != null && !request.getEmail().isBlank()
                 && userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email đã tồn tại");
+            throw new BadRequestException("Email đã tồn tại");
         }
 
         validateRole(request.getRole());
@@ -91,7 +93,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse updateUser(Integer id, UserUpdateRequest request) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với id = " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với id = " + id));
 
         String oldEmail = user.getEmail();
         String oldRole = user.getRole();
@@ -99,7 +101,7 @@ public class UserServiceImpl implements UserService {
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             if (userRepository.existsByEmailAndIdNot(request.getEmail(), id)) {
-                throw new RuntimeException("Email đã tồn tại");
+                throw new BadRequestException("Email đã tồn tại");
             }
             user.setEmail(request.getEmail().trim());
         }
@@ -135,7 +137,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse changeStatus(Integer id, UserStatusRequest request) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với id = " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với id = " + id));
 
         String oldStatus = user.getTrangThai();
 
@@ -158,7 +160,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public void resetPassword(Integer id, ResetPasswordRequest request) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với id = " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với id = " + id));
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
@@ -175,7 +177,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteUser(Integer id) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với id = " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với id = " + id));
 
         String username = user.getUsername();
 
@@ -204,14 +206,14 @@ public class UserServiceImpl implements UserService {
     private void validateRole(String role) {
         String value = role.trim().toUpperCase();
         if (!value.equals("ADMIN") && !value.equals("SALES") && !value.equals("INVENTORY")) {
-            throw new RuntimeException("Role không hợp lệ");
+            throw new BadRequestException("Role không hợp lệ");
         }
     }
 
     private void validateStatus(String status) {
         String value = status.trim().toUpperCase();
         if (!value.equals("ACTIVE") && !value.equals("INACTIVE") && !value.equals("LOCKED")) {
-            throw new RuntimeException("Trạng thái không hợp lệ");
+            throw new BadRequestException("Trạng thái không hợp lệ");
         }
     }
 
