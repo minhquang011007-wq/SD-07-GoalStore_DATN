@@ -16,6 +16,7 @@ import com.example.demo.product_category.product.entity.Product;
 import com.example.demo.product_category.product.repository.ProductRepository;
 import com.example.demo.product_category.product.repository.ProductSpecifications;
 import com.example.demo.product_category.product.service.ProductService;
+import com.example.demo.product_category.history.repository.ProductHistoryRepository;
 import com.example.demo.product_category.tag.entity.Tag;
 import com.example.demo.product_category.tag.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final TagRepository tagRepository;
     private final ProductHistoryService productHistoryService;
+    private final ProductHistoryRepository productHistoryRepository;
 
     @Override
     public ProductDetailResponse create(ProductRequest request) {
@@ -122,7 +124,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void hardDelete(Integer id) {
         Product product = getEntity(id);
-        productHistoryService.log(product, "HARD_DELETE", "Xóa cứng sản phẩm");
+        productHistoryRepository.deleteByProductId(id);
         productRepository.delete(product);
     }
 

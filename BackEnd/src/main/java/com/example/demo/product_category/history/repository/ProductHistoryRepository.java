@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface ProductHistoryRepository extends JpaRepository<ProductHistory, Long> {
     List<ProductHistory> findByProductIdOrderByChangedAtDesc(Integer productId);
+
+    void deleteByProductId(Integer productId);
 }

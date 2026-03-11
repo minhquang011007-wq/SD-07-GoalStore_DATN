@@ -32,7 +32,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
         left join Order_Items oi on oi.variant_id = pv.id
         where p.is_deleted = 0
         group by p.id, p.ten_san_pham, p.sku_chuan, p.thuong_hieu, p.mua_bo_suu_tap, p.loai_san_pham, p.doi_tuong,
-                 p.chat_lieu, p.mo_ta, p.nam_phien_ban, p.trang_thai, p.is_deleted, p.created_at
+                 p.chat_lieu, p.mo_ta, p.nam_phien_ban, p.trang_thai, p.is_deleted, p.created_at, p.updated_at
         order by coalesce(sum(oi.quantity), 0) desc, p.created_at desc
         """, nativeQuery = true)
     List<Product> findTopSellingProducts();

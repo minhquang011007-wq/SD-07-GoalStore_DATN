@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Eye, ImageOff, LoaderCircle, Pencil, Trash2 } from "lucide-vue-next"
+import { Eye, LoaderCircle, Pencil, Trash2, Zap } from "lucide-vue-next"
 import type { ProductSummaryResponse } from "@/modules/product/types"
 import { resolveProductImageUrl } from "@/modules/product/utils/image"
 
@@ -19,6 +19,7 @@ const emit = defineEmits<{
   (e: 'toggle-select', id: number): void
   (e: 'view', id: number): void
   (e: 'edit', id: number): void
+  (e: 'quick-edit', id: number): void
   (e: 'hide-oos', id: number): void
   (e: 'delete', id: number): void
   (e: 'prev-page'): void
@@ -49,19 +50,9 @@ const emit = defineEmits<{
             <td class="px-4 py-3 align-top"><input type="checkbox" :checked="props.selectedProductIds.includes(item.id)" @change="emit('toggle-select', item.id)" /></td>
             <td class="px-4 py-3 align-top">
               <div class="flex gap-3">
-                <img
-                  v-if="item.thumbnailUrl"
-                  :src="resolveProductImageUrl(item.thumbnailUrl)"
-                  :alt="item.name"
-                  class="h-14 w-14 shrink-0 rounded-xl border bg-slate-50 object-cover"
-                />
-                <div
-                  v-else
-                  class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border bg-slate-50 text-slate-400"
-                >
-                  <ImageOff :size="16" />
-                </div>
-                <div class="min-w-0">
+                <img v-if="item.thumbnailUrl" :src="resolveProductImageUrl(item.thumbnailUrl)" class="h-12 w-12 rounded-xl border object-cover" />
+                <div v-else class="flex h-12 w-12 items-center justify-center rounded-xl border bg-slate-50 text-[11px] text-slate-400">No image</div>
+                <div>
                   <div class="font-semibold text-slate-900">{{ item.name }}</div>
                   <div class="text-xs text-slate-500">{{ item.baseSku }}</div>
                   <div class="mt-1 text-xs text-slate-500">{{ item.brand || '-' }} • {{ props.statusLabel(item.productType) }}</div>
@@ -69,14 +60,8 @@ const emit = defineEmits<{
               </div>
             </td>
             <td class="px-4 py-3 align-top">
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="cat in item.categoryNames"
-                  :key="cat"
-                  class="inline-flex max-w-full whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
-                >
-                  {{ cat }}
-                </span>
+              <div class="flex flex-wrap gap-1">
+                <span v-for="cat in item.categoryNames" :key="cat" class="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">{{ cat }}</span>
               </div>
             </td>
             <td class="px-4 py-3 align-top">
@@ -88,12 +73,13 @@ const emit = defineEmits<{
               <div class="text-xs text-slate-500">{{ props.statusLabel(item.stockStatus) }}</div>
             </td>
             <td class="px-4 py-3 align-top">
-              <span class="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ props.statusLabel(item.displayStatus) }}</span>
+              <span class="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">{{ props.statusLabel(item.displayStatus) }}</span>
             </td>
             <td class="px-4 py-3 align-top">
-              <div class="flex justify-end gap-2 whitespace-nowrap">
+              <div class="flex justify-end gap-2">
                 <button @click="emit('view', item.id)" class="rounded-lg border p-2 hover:bg-slate-50"><Eye :size="16" /></button>
                 <button @click="emit('edit', item.id)" class="rounded-lg border p-2 hover:bg-slate-50"><Pencil :size="16" /></button>
+                <button @click="emit('quick-edit', item.id)" class="rounded-lg border p-2 hover:bg-slate-50" title="Quick edit"><Zap :size="16" /></button>
                 <button @click="emit('hide-oos', item.id)" class="rounded-lg border px-3 text-xs hover:bg-slate-50">Hide OOS</button>
                 <button @click="emit('delete', item.id)" class="rounded-lg border p-2 text-rose-600 hover:bg-rose-50"><Trash2 :size="16" /></button>
               </div>

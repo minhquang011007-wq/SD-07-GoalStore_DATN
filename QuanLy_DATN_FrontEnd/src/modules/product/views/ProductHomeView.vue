@@ -10,7 +10,11 @@ import CategoryModal from "@/modules/product/components/CategoryModal.vue"
 import TagManager from "@/modules/product/components/TagManager.vue"
 import TagModal from "@/modules/product/components/TagModal.vue"
 import AttributeModal from "@/modules/product/components/AttributeModal.vue"
+import ProductQuickEditModal from "@/modules/product/components/ProductQuickEditModal.vue"
+import ProductBatchUpdateBar from "@/modules/product/components/ProductBatchUpdateBar.vue"
+import ProductHighlights from "@/modules/product/components/ProductHighlights.vue"
 import {
+  batchUpdateProducts,
   createCategory,
   createProduct,
   createProductAttribute,
@@ -23,12 +27,16 @@ import {
   deleteTag,
   deleteVariant,
   fetchCategories,
+  fetchNewestProducts,
   fetchProductAttributes,
   fetchProductDetail,
   fetchProductHistory,
   fetchProductImages,
   fetchTags,
+  fetchTopSellingProducts,
+  hardDeleteProduct,
   hideProductIfOutOfStock,
+  quickUpdateProduct,
   searchProducts,
   updateCategory,
   updateProduct,
@@ -44,10 +52,12 @@ import type {
   CategoryResponse,
   ProductAttributeRequest,
   ProductAttributeResponse,
+  ProductBatchUpdateItemRequest,
   ProductDetailResponse,
   ProductDisplayStatus,
   ProductHistoryResponse,
   ProductImageResponse,
+  ProductQuickUpdateRequest,
   ProductRequest,
   ProductSummaryResponse,
   ProductType,
@@ -97,10 +107,13 @@ const loadingProducts = ref(false)
 const loadingCategories = ref(false)
 const loadingTags = ref(false)
 const loadingDetail = ref(false)
+const loadingHighlights = ref(false)
 const savingProduct = ref(false)
 const savingCategory = ref(false)
 const savingTag = ref(false)
 const savingAttribute = ref(false)
+const savingQuickUpdate = ref(false)
+const savingBatchUpdate = ref(false)
 const uploadingProductImages = ref(false)
 
 const selectedProductId = ref<number | null>(null)
@@ -110,6 +123,8 @@ const message = ref("")
 const errorMessage = ref("")
 
 const productItems = ref<ProductSummaryResponse[]>([])
+const topSellingItems = ref<ProductSummaryResponse[]>([])
+const newestItems = ref<ProductSummaryResponse[]>([])
 const categoryItems = ref<CategoryResponse[]>([])
 const tagItems = ref<TagResponse[]>([])
 
@@ -138,12 +153,15 @@ const categoryModalOpen = ref(false)
 const variantModalOpen = ref(false)
 const tagModalOpen = ref(false)
 const attributeModalOpen = ref(false)
+const quickEditOpen = ref(false)
 
 const editingProductId = ref<number | null>(null)
 const editingCategoryId = ref<number | null>(null)
 const editingVariantId = ref<number | null>(null)
 const editingTagId = ref<number | null>(null)
 const editingAttributeId = ref<number | null>(null)
+const quickEditProductId = ref<number | null>(null)
+const quickEditProductName = ref("")
 
 const productForm = reactive<ProductRequest>({
   name: "",
@@ -163,6 +181,8 @@ const categoryForm = reactive<CategoryRequest>({ name: "", description: "" })
 const variantForm = reactive<ProductVariantRequest>({ sku: "", size: "", color: "", price: null, salePrice: null, stockQuantity: 0, stockStatus: "CON_HANG" })
 const tagForm = reactive<TagRequest>({ name: "", description: "" })
 const attributeForm = reactive<ProductAttributeRequest>({ name: "", value: "", sortOrder: 0 })
+const quickEditForm = reactive<ProductQuickUpdateRequest>({ name: "", brand: "", material: "", season: "", displayStatus: undefined })
+const batchUpdateForm = reactive<Omit<ProductBatchUpdateItemRequest, "id">>({ brand: "", season: "", material: "", displayStatus: undefined })
 
 const selectedProductIds = ref<number[]>([])
 const detailStats = computed(() => {
@@ -218,6 +238,10 @@ function statusLabel(value?: string | null) {
     VO: "Vớ",
     GANG_TAY: "Găng tay",
     KHAC: "Khác",
+    NAM: "Nam",
+    NU: "Nữ",
+    TRE_EM: "Trẻ em",
+    UNISEX: "Unisex",
   }
   return labels[value || ""] || value || "-"
 }
@@ -228,6 +252,10 @@ function toggleSelectedProduct(id: number) {
 }
 function toggleAllProducts() {
   selectedProductIds.value = selectedProductIds.value.length === productItems.value.length ? [] : productItems.value.map((item) => item.id)
+}
+function clearBatchSelection() {
+  selectedProductIds.value = []
+  Object.assign(batchUpdateForm, { brand: "", season: "", material: "", displayStatus: undefined })
 }
 
 function setProductFormFromDetail(detail: ProductDetailResponse) {
@@ -263,6 +291,9 @@ function resetTagForm() {
 function resetAttributeForm() {
   editingAttributeId.value = null
   Object.assign(attributeForm, { name: "", value: "", sortOrder: 0 })
+}
+function resetQuickEditForm() {
+  Object.assign(quickEditForm, { name: "", brand: "", material: "", season: "", displayStatus: undefined })
 }
 
 async function loadCategories() {
@@ -307,10 +338,23 @@ async function loadProducts() {
     productItems.value = response.content || []
     totalElements.value = response.totalElements || 0
     totalPages.value = response.totalPages || 0
+    selectedProductIds.value = selectedProductIds.value.filter((id) => productItems.value.some((item) => item.id === id))
   } catch (error) {
     notifyError(error)
   } finally {
     loadingProducts.value = false
+  }
+}
+async function loadHighlights() {
+  loadingHighlights.value = true
+  try {
+    const [topSelling, newest] = await Promise.all([fetchTopSellingProducts(), fetchNewestProducts(6)])
+    topSellingItems.value = topSelling || []
+    newestItems.value = newest || []
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingHighlights.value = false
   }
 }
 async function openProductDetail(id: number) {
@@ -341,7 +385,7 @@ async function openProductDetail(id: number) {
 }
 async function refreshAll() {
   resetMessage()
-  await Promise.all([loadCategories(), loadTags(), loadProducts()])
+  await Promise.all([loadCategories(), loadTags(), loadProducts(), loadHighlights()])
   if (selectedProductId.value) await openProductDetail(selectedProductId.value)
 }
 function applyFilters() {
@@ -387,7 +431,7 @@ async function submitProduct() {
   }
 }
 async function removeProduct(id: number) {
-  if (!window.confirm("Xóa sản phẩm này?")) return
+  if (!window.confirm("Xóa mềm sản phẩm này?")) return
   try {
     await deleteProduct(id)
     notifySuccess("Đã xóa sản phẩm.")
@@ -401,6 +445,22 @@ async function removeProduct(id: number) {
     notifyError(error)
   }
 }
+async function removeProductHard(id: number) {
+  if (!window.confirm("Xóa cứng sản phẩm này? Hành động này không thể hoàn tác.")) return
+  try {
+    await hardDeleteProduct(id)
+    notifySuccess("Đã xóa cứng sản phẩm.")
+    if (selectedProductId.value === id) {
+      selectedProductId.value = null
+      selectedProduct.value = null
+      selectedProductHistory.value = []
+    }
+    clearBatchSelection()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  }
+}
 async function runHideIfOutOfStock(id: number) {
   try {
     await hideProductIfOutOfStock(id)
@@ -408,6 +468,64 @@ async function runHideIfOutOfStock(id: number) {
     await refreshAll()
   } catch (error) {
     notifyError(error)
+  }
+}
+async function openQuickEdit(id: number) {
+  try {
+    const detail = await fetchProductDetail(id)
+    quickEditProductId.value = id
+    quickEditProductName.value = detail.name
+    Object.assign(quickEditForm, {
+      name: detail.name,
+      brand: detail.brand || "",
+      material: detail.material || "",
+      season: detail.season || "",
+      displayStatus: detail.displayStatus,
+    })
+    quickEditOpen.value = true
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function submitQuickEdit() {
+  if (!quickEditProductId.value) return
+  savingQuickUpdate.value = true
+  try {
+    await quickUpdateProduct(quickEditProductId.value, { ...quickEditForm })
+    notifySuccess("Đã cập nhật nhanh sản phẩm.")
+    quickEditOpen.value = false
+    resetQuickEditForm()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingQuickUpdate.value = false
+  }
+}
+async function submitBatchUpdate() {
+  if (!selectedProductIds.value.length) return
+  const payloadItems = selectedProductIds.value.map((id) => ({
+    id,
+    brand: batchUpdateForm.brand?.trim() || undefined,
+    season: batchUpdateForm.season?.trim() || undefined,
+    material: batchUpdateForm.material?.trim() || undefined,
+    displayStatus: batchUpdateForm.displayStatus,
+  }))
+  const hasAnyField = payloadItems.some((item) => item.brand || item.season || item.material || item.displayStatus)
+  if (!hasAnyField) {
+    errorMessage.value = "Batch update cần ít nhất 1 trường để cập nhật."
+    return
+  }
+  savingBatchUpdate.value = true
+  try {
+    await batchUpdateProducts({ items: payloadItems })
+    notifySuccess(`Đã batch update ${selectedProductIds.value.length} sản phẩm.`)
+    clearBatchSelection()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingBatchUpdate.value = false
   }
 }
 
@@ -609,7 +727,12 @@ async function setAvatar(image: ProductImageResponse) {
 function handleImageOrderChange(image: ProductImageResponse, event: Event) {
   if (!selectedProductId.value) return
   const target = event.target as HTMLInputElement
-  updateProductImage(image.id, { avatar: image.avatar, sortOrder: Number(target.value) })
+  const nextSortOrder = Number(target.value)
+  if (!Number.isInteger(nextSortOrder) || nextSortOrder < 0) {
+    errorMessage.value = "Thứ tự ảnh phải là số nguyên không âm."
+    return
+  }
+  updateProductImage(image.id, { avatar: image.avatar, sortOrder: nextSortOrder })
     .then(() => {
       notifySuccess("Đã cập nhật thứ tự ảnh.")
       return openProductDetail(selectedProductId.value as number)
@@ -638,7 +761,7 @@ onMounted(async () => {
       <div>
         <p class="text-sm text-slate-500">Inventory / Product & Category</p>
         <h1 class="mt-1 text-2xl font-bold text-slate-900">Quản lý Catalog Goal Store</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600">Frontend đã khớp backend cho product, category, tag, variant, image, history và attribute.</p>
+        <p class="mt-2 max-w-3xl text-sm text-slate-600">Giữ nguyên các chức năng đang ổn, chỉ bổ sung quick update, batch update, top selling, newest và hard delete.</p>
       </div>
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">Tổng sản phẩm</div><div class="mt-1 text-xl font-semibold">{{ totalElements }}</div></div>
@@ -651,6 +774,8 @@ onMounted(async () => {
     <div v-if="message" class="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><Boxes :size="16" /> {{ message }}</div>
     <div v-if="errorMessage" class="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><AlertCircle :size="16" /> {{ errorMessage }}</div>
 
+    <ProductHighlights :top-selling="topSellingItems" :newest="newestItems" :loading="loadingHighlights" :format-currency="formatCurrency" @open="openProductDetail" />
+
     <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
       <div class="space-y-6">
         <div class="rounded-2xl border bg-white p-4 shadow-sm">
@@ -662,7 +787,8 @@ onMounted(async () => {
 
           <template v-if="activeTab === 'products'">
             <ProductFilters :filters="productFilters" :category-items="categoryItems" :tag-items="tagItems" :display-status-options="DISPLAY_STATUS_OPTIONS" :product-types="PRODUCT_TYPES" :genders="GENDERS" :stock-status-options="STOCK_STATUS_OPTIONS" :sort-options="SORT_OPTIONS" @apply="applyFilters" @reset="resetFilters" @create-product="openCreateProduct" />
-            <ProductTable :items="productItems" :loading="loadingProducts" :selected-product-ids="selectedProductIds" :page="page" :total-pages="totalPages" :total-elements="totalElements" :format-currency="formatCurrency" :status-label="statusLabel" @toggle-all="toggleAllProducts" @toggle-select="toggleSelectedProduct" @view="openProductDetail" @edit="openEditProduct" @hide-oos="runHideIfOutOfStock" @delete="removeProduct" @prev-page="page -= 1; loadProducts()" @next-page="page += 1; loadProducts()" />
+            <ProductBatchUpdateBar :selected-count="selectedProductIds.length" :saving="savingBatchUpdate" :display-status-options="DISPLAY_STATUS_OPTIONS" :form="batchUpdateForm" @apply="submitBatchUpdate" @clear="clearBatchSelection" />
+            <ProductTable :items="productItems" :loading="loadingProducts" :selected-product-ids="selectedProductIds" :page="page" :total-pages="totalPages" :total-elements="totalElements" :format-currency="formatCurrency" :status-label="statusLabel" @toggle-all="toggleAllProducts" @toggle-select="toggleSelectedProduct" @view="openProductDetail" @edit="openEditProduct" @quick-edit="openQuickEdit" @hide-oos="runHideIfOutOfStock" @delete="removeProduct" @prev-page="page -= 1; loadProducts()" @next-page="page += 1; loadProducts()" />
           </template>
 
           <template v-else-if="activeTab === 'categories'">
@@ -675,10 +801,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <ProductDetail :selected-product="selectedProduct" :loading-detail="loadingDetail" :uploading-product-images="uploadingProductImages" :detail-stats="detailStats" :history-items="selectedProductHistory" :format-currency="formatCurrency" :format-date="formatDate" :status-label="statusLabel" @edit-product="openEditProduct" @hide-oos="runHideIfOutOfStock" @delete-soft="removeProduct" @create-variant="openCreateVariant" @edit-variant="openEditVariant" @remove-variant="removeVariant" @upload-images="handleProductImagesChange" @set-avatar="setAvatar" @remove-image="removeImage" @image-order-change="(payload) => handleImageOrderChange(payload.image, payload.event)" @create-attribute="openCreateAttribute" @edit-attribute="openEditAttribute" @remove-attribute="removeAttribute" />
+      <ProductDetail :selected-product="selectedProduct" :loading-detail="loadingDetail" :uploading-product-images="uploadingProductImages" :detail-stats="detailStats" :history-items="selectedProductHistory" :format-currency="formatCurrency" :format-date="formatDate" :status-label="statusLabel" @edit-product="openEditProduct" @quick-edit="openQuickEdit" @hide-oos="runHideIfOutOfStock" @delete-soft="removeProduct" @delete-hard="removeProductHard" @create-variant="openCreateVariant" @edit-variant="openEditVariant" @remove-variant="removeVariant" @upload-images="handleProductImagesChange" @set-avatar="setAvatar" @remove-image="removeImage" @image-order-change="(payload) => handleImageOrderChange(payload.image, payload.event)" @create-attribute="openCreateAttribute" @edit-attribute="openEditAttribute" @remove-attribute="removeAttribute" />
     </div>
 
     <ProductModal :open="productModalOpen" :editing-product-id="editingProductId" :form="productForm" :category-items="categoryItems" :tag-items="tagItems" :saving-product="savingProduct" :product-types="PRODUCT_TYPES" :genders="GENDERS" :display-status-options="DISPLAY_STATUS_OPTIONS" @close="productModalOpen = false" @submit="submitProduct" />
+    <ProductQuickEditModal :open="quickEditOpen" :product-name="quickEditProductName" :saving="savingQuickUpdate" :display-status-options="DISPLAY_STATUS_OPTIONS" :form="quickEditForm" @close="quickEditOpen = false" @submit="submitQuickEdit" />
     <CategoryModal :open="categoryModalOpen" :saving="savingCategory" :editing-category-id="editingCategoryId" :form="categoryForm" @close="categoryModalOpen = false" @submit="submitCategory" />
 
     <div v-if="variantModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
