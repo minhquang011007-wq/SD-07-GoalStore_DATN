@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import {fileURLToPath, URL} from "node:url";
 
 export default defineConfig({
-    base: "/material-dashboard-shadcn-vue/",
+    base: "/",
     plugins: [vue()],
     server: {
         host: "0.0.0.0",
