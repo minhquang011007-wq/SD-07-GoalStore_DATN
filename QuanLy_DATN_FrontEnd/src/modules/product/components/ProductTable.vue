@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Eye, LoaderCircle, Pencil, Trash2 } from "lucide-vue-next"
+import { Eye, ImageOff, LoaderCircle, Pencil, Trash2 } from "lucide-vue-next"
 import type { ProductSummaryResponse } from "@/modules/product/types"
 import { resolveProductImageUrl } from "@/modules/product/utils/image"
 
@@ -49,8 +49,19 @@ const emit = defineEmits<{
             <td class="px-4 py-3 align-top"><input type="checkbox" :checked="props.selectedProductIds.includes(item.id)" @change="emit('toggle-select', item.id)" /></td>
             <td class="px-4 py-3 align-top">
               <div class="flex gap-3">
-                <img v-if="item.thumbnailUrl" :src="resolveProductImageUrl(item.thumbnailUrl)" class="h-14 w-14 shrink-0 rounded-xl border bg-slate-50 object-cover" />
-                <div>
+                <img
+                  v-if="item.thumbnailUrl"
+                  :src="resolveProductImageUrl(item.thumbnailUrl)"
+                  :alt="item.name"
+                  class="h-14 w-14 shrink-0 rounded-xl border bg-slate-50 object-cover"
+                />
+                <div
+                  v-else
+                  class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border bg-slate-50 text-slate-400"
+                >
+                  <ImageOff :size="16" />
+                </div>
+                <div class="min-w-0">
                   <div class="font-semibold text-slate-900">{{ item.name }}</div>
                   <div class="text-xs text-slate-500">{{ item.baseSku }}</div>
                   <div class="mt-1 text-xs text-slate-500">{{ item.brand || '-' }} • {{ props.statusLabel(item.productType) }}</div>
@@ -58,8 +69,14 @@ const emit = defineEmits<{
               </div>
             </td>
             <td class="px-4 py-3 align-top">
-              <div class="flex flex-wrap gap-1">
-                <span v-for="cat in item.categoryNames" :key="cat" class="rounded-full bg-slate-100 px-2 py-1 text-xs">{{ cat }}</span>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="cat in item.categoryNames"
+                  :key="cat"
+                  class="inline-flex max-w-full whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+                >
+                  {{ cat }}
+                </span>
               </div>
             </td>
             <td class="px-4 py-3 align-top">

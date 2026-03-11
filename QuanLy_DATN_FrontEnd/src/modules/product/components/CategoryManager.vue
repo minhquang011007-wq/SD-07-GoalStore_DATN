@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Pencil, Plus, Trash2, Upload } from "lucide-vue-next"
+import { ImageOff, Pencil, Plus, Trash2, Upload } from "lucide-vue-next"
 import type { CategoryResponse } from "@/modules/product/types"
+import { resolveProductImageUrl } from "@/modules/product/utils/image"
 
 defineProps<{
   loading?: boolean
@@ -30,14 +31,26 @@ const emit = defineEmits<{
     <div v-else class="mt-4 grid gap-4 md:grid-cols-2">
       <div v-for="category in items" :key="category.id" class="rounded-2xl border p-4">
         <div class="flex gap-3">
-          <img v-if="category.imageUrl" :src="category.imageUrl" class="h-16 w-16 rounded-xl border object-cover" />
-          <div class="flex-1">
+          <img
+            v-if="category.imageUrl"
+            :src="resolveProductImageUrl(category.imageUrl)"
+            :alt="category.name"
+            class="h-16 w-16 shrink-0 rounded-xl border bg-slate-50 object-cover"
+          />
+          <div
+            v-else
+            class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border bg-slate-50 text-slate-400"
+          >
+            <ImageOff :size="18" />
+          </div>
+
+          <div class="min-w-0 flex-1">
             <div class="flex items-start justify-between gap-2">
-              <div>
-                <h3 class="font-semibold text-slate-900">{{ category.name }}</h3>
-                <p class="mt-1 text-sm text-slate-500">{{ category.description || 'Chưa có mô tả' }}</p>
+              <div class="min-w-0">
+                <h3 class="truncate font-semibold text-slate-900">{{ category.name }}</h3>
+                <p class="mt-1 line-clamp-2 text-sm text-slate-500">{{ category.description || 'Chưa có mô tả' }}</p>
               </div>
-              <span class="rounded-full bg-slate-100 px-2 py-1 text-xs">{{ category.productCount }} SP</span>
+              <span class="inline-flex shrink-0 whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs">{{ category.productCount }} SP</span>
             </div>
             <div class="mt-3 flex flex-wrap gap-2">
               <button @click="emit('edit', category)" class="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
