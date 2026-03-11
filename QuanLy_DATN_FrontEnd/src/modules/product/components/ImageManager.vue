@@ -1,42 +1,49 @@
 <script setup lang="ts">
-import { ImagePlus } from "lucide-vue-next"
+import { Upload } from "lucide-vue-next"
 import type { ProductImageResponse } from "@/modules/product/types"
+import { resolveProductImageUrl } from "@/modules/product/utils/image"
 
-defineProps<{
-  items: ProductImageResponse[]
+const props = defineProps<{
+  images: ProductImageResponse[]
   uploading: boolean
-  normalizeAsset: (url?: string | null) => string
 }>()
 
 const emit = defineEmits<{
-  (e: "upload", event: Event): void
-  (e: "avatar", id: number): void
-  (e: "delete", id: number): void
+  (e: 'upload', event: Event): void
+  (e: 'set-avatar', image: ProductImageResponse): void
+  (e: 'remove', id: number): void
+  (e: 'image-order-change', payload: { image: ProductImageResponse; event: Event }): void
 }>()
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="flex items-center justify-between">
-      <div class="text-sm font-medium text-slate-700">Ảnh sản phẩm</div>
-      <label class="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium hover:bg-slate-50">
-        <ImagePlus class="h-3.5 w-3.5" />
-        {{ uploading ? 'Đang upload...' : 'Thêm ảnh' }}
-        <input type="file" multiple class="hidden" @change="emit('upload', $event)" />
+  <div>
+    <div class="mb-2 flex items-center justify-between">
+      <h4 class="font-semibold text-slate-900">Ảnh sản phẩm</h4>
+      <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
+        <Upload :size="14" />
+        {{ props.uploading ? 'Đang upload...' : 'Upload ảnh' }}
+        <input type="file" class="hidden" accept="image/*" multiple @change="emit('upload', $event)" />
       </label>
     </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div v-for="image in items" :key="image.id" class="rounded-2xl border p-2">
-        <img :src="normalizeAsset(image.imageUrl)" class="h-28 w-full rounded-xl object-cover" alt="product image" />
-        <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
-          <span>{{ image.avatar ? 'Ảnh đại diện' : `Thứ tự: ${image.sortOrder}` }}</span>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div v-for="image in props.images" :key="image.id" class="rounded-xl border p-3">
+        <img :src="resolveProductImageUrl(image.imageUrl)" class="h-32 w-full rounded-xl border bg-slate-50 object-cover" />
+        <div class="mt-3 flex items-center justify-between gap-2 text-xs">
+          <span class="rounded-full px-2 py-1" :class="image.avatar ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+            {{ image.avatar ? 'Ảnh đại diện' : 'Ảnh phụ' }}
+          </span>
           <div class="flex gap-2">
-            <button class="rounded-lg border px-2 py-1" @click="emit('avatar', image.id)">Đặt avatar</button>
-            <button class="rounded-lg border border-red-200 px-2 py-1 text-red-600" @click="emit('delete', image.id)">Xóa</button>
+            <button @click="emit('set-avatar', image)" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Đặt avatar</button>
+            <button @click="emit('remove', image.id)" class="rounded-lg border px-2 py-1 text-rose-600 hover:bg-rose-50">Xóa</button>
           </div>
         </div>
+        <label class="mt-2 block text-xs text-slate-500">
+          Sort order
+          <input :value="image.sortOrder" type="number" class="mt-1 w-full rounded-lg border px-2 py-1 text-sm" @change="emit('image-order-change', { image, event: $event })" />
+        </label>
       </div>
-      <div v-if="!items.length" class="col-span-2 rounded-2xl border border-dashed p-5 text-center text-sm text-slate-500">Chưa có ảnh nào cho sản phẩm này</div>
+      <div v-if="props.images.length === 0" class="rounded-xl border p-6 text-sm text-slate-500">Chưa có ảnh sản phẩm.</div>
     </div>
   </div>
 </template>

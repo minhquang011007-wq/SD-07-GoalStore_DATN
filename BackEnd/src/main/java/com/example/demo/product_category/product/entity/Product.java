@@ -1,5 +1,6 @@
 package com.example.demo.product_category.product.entity;
 
+import com.example.demo.product_category.attribute.entity.ProductAttribute;
 import com.example.demo.product_category.category.entity.Category;
 import com.example.demo.product_category.common.enums.ProductDisplayStatus;
 import com.example.demo.product_category.common.enums.ProductType;
@@ -95,6 +96,11 @@ public class Product {
     @OrderBy("sortOrder asc, id asc")
     @Builder.Default
     private Set<ProductImage> images = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder asc, id asc")
+    @Builder.Default
+    private Set<ProductAttribute> attributes = new LinkedHashSet<>();
 
     @PrePersist
     public void prePersist() {

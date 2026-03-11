@@ -198,6 +198,19 @@ GO
 CREATE INDEX IX_PH_Product ON Product_History(product_id);
 GO
 
+CREATE TABLE Product_Attributes (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    product_id INT NOT NULL,
+    ten_thuoc_tinh NVARCHAR(100) NOT NULL,
+    gia_tri NVARCHAR(255) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_deleted BIT NOT NULL DEFAULT 0,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    updated_at DATETIME2 NULL,
+    CONSTRAINT FK_PA_Product
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+);
+
 /* ================================
    CUSTOMERS
 ================================ */

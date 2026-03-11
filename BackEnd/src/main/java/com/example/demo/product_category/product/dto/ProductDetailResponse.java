@@ -1,5 +1,6 @@
 package com.example.demo.product_category.product.dto;
 
+import com.example.demo.product_category.attribute.dto.ProductAttributeResponse;
 import com.example.demo.product_category.category.dto.CategoryResponse;
 import com.example.demo.product_category.common.enums.ProductDisplayStatus;
 import com.example.demo.product_category.common.enums.ProductType;
@@ -35,4 +36,5 @@ public class ProductDetailResponse {
     private List<TagResponse> tags;
     private List<ProductImageResponse> images;
     private List<ProductVariantResponse> variants;
+    private List<ProductAttributeResponse> attributes;
 }

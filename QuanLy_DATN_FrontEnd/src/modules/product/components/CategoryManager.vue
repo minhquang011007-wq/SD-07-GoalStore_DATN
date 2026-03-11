@@ -1,43 +1,61 @@
 <script setup lang="ts">
+import { Pencil, Plus, Trash2, Upload } from "lucide-vue-next"
 import type { CategoryResponse } from "@/modules/product/types"
 
 defineProps<{
-  loading: boolean
+  loading?: boolean
   items: CategoryResponse[]
-  normalizeAsset: (url?: string | null) => string
 }>()
 
 const emit = defineEmits<{
   (e: "create"): void
-  (e: "edit", item: CategoryResponse): void
+  (e: "edit", category: CategoryResponse): void
   (e: "delete", id: number): void
-  (e: "upload", payload: { event: Event; id: number }): void
+  (e: "upload-image", payload: { id: number; event: Event }): void
+  (e: "refresh"): void
 }>()
 </script>
 
 <template>
-  <div class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-3">
-      <button @click="emit('create')" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white">Thêm category</button>
+  <div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button @click="emit('create')" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white">
+        <span class="inline-flex items-center gap-2"><Plus :size="16" /> Thêm category</span>
+      </button>
+      <button @click="emit('refresh')" class="rounded-xl border px-4 py-2 text-sm font-medium">Làm mới danh mục</button>
     </div>
-    <div v-if="loading" class="rounded-2xl border p-10 text-center text-sm text-slate-500">Đang tải category...</div>
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+    <div v-if="loading" class="mt-4 rounded-2xl border p-10 text-center text-sm text-slate-500">Đang tải category...</div>
+
+    <div v-else class="mt-4 grid gap-4 md:grid-cols-2">
       <div v-for="category in items" :key="category.id" class="rounded-2xl border p-4">
-        <div class="mb-4 flex items-start gap-3">
-          <img :src="normalizeAsset(category.imageUrl) || 'https://placehold.co/88x88?text=Category'" class="h-20 w-20 rounded-2xl border object-cover" alt="category" />
-          <div class="min-w-0 flex-1">
-            <div class="font-semibold text-slate-900">{{ category.name }}</div>
-            <div class="mt-1 text-sm text-slate-500">{{ category.description || 'Chưa có mô tả' }}</div>
-            <div class="mt-2 text-xs text-slate-500">{{ category.productCount }} sản phẩm</div>
+        <div class="flex gap-3">
+          <img v-if="category.imageUrl" :src="category.imageUrl" class="h-16 w-16 rounded-xl border object-cover" />
+          <div class="flex-1">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="font-semibold text-slate-900">{{ category.name }}</h3>
+                <p class="mt-1 text-sm text-slate-500">{{ category.description || 'Chưa có mô tả' }}</p>
+              </div>
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-xs">{{ category.productCount }} SP</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button @click="emit('edit', category)" class="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
+                <span class="inline-flex items-center gap-2"><Pencil :size="14" /> Sửa</span>
+              </button>
+              <label class="cursor-pointer rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
+                <span class="inline-flex items-center gap-2"><Upload :size="14" /> Ảnh</span>
+                <input type="file" class="hidden" accept="image/*" @change="emit('upload-image', { id: category.id, event: $event })" />
+              </label>
+              <button @click="emit('delete', category.id)" class="rounded-lg border px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+                <span class="inline-flex items-center gap-2"><Trash2 :size="14" /> Xóa</span>
+              </button>
+            </div>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="rounded-lg border px-3 py-2 text-xs" @click="emit('edit', category)">Sửa</button>
-          <label class="cursor-pointer rounded-lg border px-3 py-2 text-xs">Ảnh<input type="file" class="hidden" accept="image/*" @change="emit('upload', { event: $event, id: category.id })" /></label>
-          <button class="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-600" @click="emit('delete', category.id)">Xóa</button>
-        </div>
       </div>
-      <div v-if="items.length === 0" class="rounded-2xl border border-dashed p-10 text-center text-sm text-slate-500">Chưa có category.</div>
+
+      <div v-if="items.length === 0" class="rounded-2xl border p-10 text-center text-sm text-slate-500">Chưa có category.</div>
     </div>
   </div>
 </template>

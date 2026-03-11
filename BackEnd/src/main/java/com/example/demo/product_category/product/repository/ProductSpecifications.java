@@ -26,6 +26,7 @@ public final class ProductSpecifications {
             query.distinct(true);
             var variantJoin = root.join("variants", JoinType.LEFT);
             var tagJoin = root.join("tags", JoinType.LEFT);
+            var attributeJoin = root.join("attributes", JoinType.LEFT);
             return cb.or(
                     cb.like(cb.lower(root.get("name")), like),
                     cb.like(cb.lower(root.get("baseSku")), like),
@@ -34,7 +35,9 @@ public final class ProductSpecifications {
                     cb.like(cb.lower(variantJoin.get("sku")), like),
                     cb.like(cb.lower(variantJoin.get("color")), like),
                     cb.like(cb.lower(variantJoin.get("size")), like),
-                    cb.like(cb.lower(tagJoin.get("name")), like)
+                    cb.like(cb.lower(tagJoin.get("name")), like),
+                    cb.like(cb.lower(attributeJoin.get("name")), like),
+                    cb.like(cb.lower(attributeJoin.get("value")), like)
             );
         };
     }
