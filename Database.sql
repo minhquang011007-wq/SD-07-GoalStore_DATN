@@ -311,3 +311,38 @@ WHERE code IN (
     'PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE','PRODUCT_DELETE'
 );
 GO
+
+/* ================================ LOGIN ATTEMPTS ================================ */
+CREATE TABLE Login_Attempts (
+    id BIGINT IDENTITY PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    user_id INT NULL,
+    success BIT NOT NULL,
+    ip_address VARCHAR(50) NULL,
+    user_agent NVARCHAR(255) NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_LoginAttempts_User FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL
+);
+GO
+
+CREATE INDEX IX_LoginAttempts_Time ON Login_Attempts(created_at DESC);
+CREATE INDEX IX_LoginAttempts_Username ON Login_Attempts(username);
+GO
+
+/* ================================ SECURITY ALERTS ================================ */
+CREATE TABLE Security_Alerts (
+    id BIGINT IDENTITY PRIMARY KEY,
+    user_id INT NULL,
+    alert_type VARCHAR(50) NOT NULL,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('INFO','WARNING','CRITICAL')),
+    message NVARCHAR(500) NOT NULL,
+    ip_address VARCHAR(50) NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    resolved BIT NOT NULL DEFAULT 0,
+    CONSTRAINT FK_SecurityAlerts_User FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL
+);
+GO
+
+CREATE INDEX IX_SecurityAlerts_Time ON Security_Alerts(created_at DESC);
+CREATE INDEX IX_SecurityAlerts_Resolved ON Security_Alerts(resolved);
+GO
