@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from "vue"
 import { RouterView, useRoute, useRouter } from "vue-router"
 import Navbar from "@/shared/components/Navbar.vue"
 import Footer from "@/shared/components/Footer.vue"
+import { Shield } from "lucide-vue-next"
 import {
   LayoutDashboard,
   Users,
@@ -48,6 +49,7 @@ const navigation: NavItem[] = [
   { name: "Reports", path: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], note: "Module Audit" },
   { name: "Docs", path: "/admin/docs", icon: BookOpen, roles: ["ADMIN"], note: "Module Audit" },
   { name: "Settings", path: "/admin/settings", icon: Settings, roles: ["ADMIN"], note: "Module User" },
+  { name: "Permissions", path: "/admin/permissions", icon: Shield, roles: ["ADMIN"], note: "Module Permission" },
 ]
 
 const filteredNavigation = computed(() => {
