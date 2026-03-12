@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/loyalty")
-@CrossOrigin("*")
 public class LoyaltyController {
 
     private final LoyaltyService loyaltyService;
@@ -28,6 +27,24 @@ public class LoyaltyController {
     public ResponseEntity<String> deductPoint(@RequestBody DeductPointRequest request) {
         loyaltyService.deductPoint(request);
         return ResponseEntity.ok("Trừ điểm thành công");
+    }
+
+    @PostMapping("/vip/assign")
+    public ResponseEntity<String> assignVip(@RequestBody AssignVipRequest request) {
+        loyaltyService.assignVip(request);
+        return ResponseEntity.ok("Gán VIP thành công");
+    }
+
+    @PostMapping("/vip-program")
+    public ResponseEntity<String> createVipProgram(@RequestBody VipProgramRequest request) {
+        loyaltyService.createVipProgram(request);
+        return ResponseEntity.ok("Tạo chương trình VIP thành công");
+    }
+
+    @PostMapping("/reward-rule")
+    public ResponseEntity<String> createRewardRule(@RequestBody RewardRuleRequest request) {
+        loyaltyService.createRewardRule(request);
+        return ResponseEntity.ok("Tạo ưu đãi thành công");
     }
 
     @GetMapping("/history/{customerId}")
@@ -59,4 +76,5 @@ public class LoyaltyController {
     public ResponseEntity<List<BirthdayNotificationResponse>> getBirthdayLogs(@PathVariable Integer customerId) {
         return ResponseEntity.ok(loyaltyService.getBirthdayLogs(customerId));
     }
+
 }

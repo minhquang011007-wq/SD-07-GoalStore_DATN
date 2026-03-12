@@ -29,4 +29,9 @@ public interface CustomerService {
     List<CustomerSpendingResponse> getTopCustomersBySpending();
 
     List<InactiveCustomerResponse> getInactiveCustomers(Long days);
+
+    CustomerDetailResponse getCustomerDetail(Integer id);
+
+    List<CustomerResponse> searchAll(String keyword);
+
 }

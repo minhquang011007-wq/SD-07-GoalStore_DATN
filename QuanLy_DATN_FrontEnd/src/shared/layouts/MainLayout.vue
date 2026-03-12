@@ -17,9 +17,11 @@ import {
   ChevronRight,
   CreditCard,
   LogOut,
+  Gift,
 } from "lucide-vue-next"
 
 type RoleType = "ADMIN" | "SALES" | "INVENTORY"
+
 type NavItem = {
   name: string
   path: string
@@ -40,8 +42,13 @@ const navigation: NavItem[] = [
   { name: "Inventory Home", path: "/inventory", icon: LayoutDashboard, roles: ["INVENTORY"], note: "Chung" },
 
   { name: "Products", path: "/inventory/products", icon: Boxes, roles: ["ADMIN", "INVENTORY"], note: "Module Product" },
-  { name: "Customers", path: "/sales/customers", icon: Users, roles: ["ADMIN", "SALES"], note: "Module Customer" },
+
+  { name: "Customers", path: "/sales/customer-loyalty/customers", icon: Users, roles: ["ADMIN", "SALES"], note: "Danh sách khách hàng" },
   { name: "Companies", path: "/sales/companies", icon: Building2, roles: ["ADMIN", "SALES"], note: "Module Customer" },
+  { name: "Top Spending", path: "/sales/customer-loyalty/customers-top-spending", icon: TrendingUp, roles: ["ADMIN", "SALES"], note: "Khách chi tiêu" },
+  { name: "Inactive Customers", path: "/sales/customer-loyalty/customers-inactive", icon: Users, roles: ["ADMIN", "SALES"], note: "Lâu chưa mua" },
+  { name: "Loyalty", path: "/sales/customer-loyalty/loyalty", icon: Gift, roles: ["ADMIN", "SALES"], note: "Điểm thưởng" },
+
   { name: "Deals", path: "/sales/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Tasks", path: "/sales/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Orders", path: "/admin/orders", icon: CreditCard, roles: ["ADMIN"], note: "Module Order" },
@@ -54,6 +61,18 @@ const filteredNavigation = computed(() => {
   if (!role.value) return []
   return navigation.filter((item) => !item.roles || item.roles.includes(role.value as RoleType))
 })
+
+const isActive = (path: string) => {
+  if (path === "/sales/customer-loyalty/customers") {
+    return route.path.startsWith("/sales/customer-loyalty/customers")
+  }
+
+  if (path === "/sales/customer-loyalty/loyalty") {
+    return route.path.startsWith("/sales/customer-loyalty/loyalty")
+  }
+
+  return route.path === path
+}
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 1024
@@ -135,7 +154,7 @@ onUnmounted(() => {
           @click="closeSidebarOnMobile"
           :class="[
             'flex items-start gap-2 px-3 py-2 rounded-lg transition-colors text-sm',
-            route.path === item.path
+            isActive(item.path)
               ? 'bg-primary text-primary-foreground'
               : 'hover:bg-accent hover:text-accent-foreground'
           ]"

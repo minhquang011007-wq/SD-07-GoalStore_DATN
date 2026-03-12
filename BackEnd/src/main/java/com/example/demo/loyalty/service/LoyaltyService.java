@@ -21,4 +21,11 @@ public interface LoyaltyService {
     List<RewardRuleResponse> getRewardRules();
 
     List<BirthdayNotificationResponse> getBirthdayLogs(Integer customerId);
+
+    void assignVip(AssignVipRequest request);
+
+    void createVipProgram(VipProgramRequest request);
+
+    void createRewardRule(RewardRuleRequest request);
+
 }

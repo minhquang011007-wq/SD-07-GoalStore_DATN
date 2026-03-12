@@ -1,15 +1,11 @@
 package com.example.demo.customer.service.impl;
 
-import com.example.demo.customer.dto.CustomerOrderHistoryResponse;
-import com.example.demo.customer.dto.CustomerRequest;
-import com.example.demo.customer.dto.CustomerResponse;
-import com.example.demo.customer.dto.CustomerSpendingResponse;
-import com.example.demo.customer.dto.InactiveCustomerResponse;
+import com.example.demo.customer.dto.*;
 import com.example.demo.customer.entity.Customer;
 import com.example.demo.customer.repository.CustomerRepository;
 import com.example.demo.customer.service.CustomerService;
-import com.example.demo.order_return.entity.Order;
-import com.example.demo.order_return.repository.OrderRepository;
+import com.example.demo.order.entity.Order;
+import com.example.demo.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -54,6 +50,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponse updateCustomer(Integer id, CustomerRequest request) {
+
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
@@ -99,24 +96,40 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
+    public List<CustomerResponse> searchAll(String keyword) {
+
+        return customerRepository.searchAll(keyword)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+    }
+
+    @Override
     public List<CustomerOrderHistoryResponse> getCustomerOrderHistory(Integer customerId) {
+
         return orderRepository.findByCustomerIdOrderByOrderDateDesc(customerId)
                 .stream()
                 .map(this::mapOrderHistory)
                 .collect(Collectors.toList());
+
     }
 
     @Override
     public List<CustomerSpendingResponse> getTopCustomersBySpending() {
+
         List<Object[]> rows = orderRepository.getCustomerSpending();
 
         return rows.stream().map(row -> {
+
             Integer customerId = (Integer) row[0];
             BigDecimal spending = (BigDecimal) row[1];
+
             Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new RuntimeException("Customer not found"));
+                    .orElseThrow();
 
             CustomerSpendingResponse response = new CustomerSpendingResponse();
+
             response.setCustomerId(customer.getId());
             response.setTen(customer.getTen());
             response.setEmail(customer.getEmail());
@@ -126,16 +139,20 @@ public class CustomerServiceImpl implements CustomerService {
             response.setTongChiTieu(spending);
 
             return response;
+
         }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<InactiveCustomerResponse> getInactiveCustomers(Long days) {
+
         LocalDateTime now = LocalDateTime.now();
 
         return orderRepository.getLastOrderDateByCustomer()
                 .stream()
                 .map(row -> {
+
                     Integer customerId = (Integer) row[0];
                     String ten = (String) row[1];
                     String email = (String) row[2];
@@ -145,20 +162,51 @@ public class CustomerServiceImpl implements CustomerService {
                     long diffDays = Duration.between(lastOrderDate, now).toDays();
 
                     InactiveCustomerResponse response = new InactiveCustomerResponse();
+
                     response.setCustomerId(customerId);
                     response.setTen(ten);
                     response.setEmail(email);
                     response.setSdt(sdt);
                     response.setLastOrderDate(lastOrderDate);
                     response.setSoNgayKhongMua(diffDays);
+
                     return response;
+
                 })
                 .filter(item -> item.getSoNgayKhongMua() >= days)
                 .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public CustomerDetailResponse getCustomerDetail(Integer id) {
+
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow();
+
+        CustomerDetailResponse res = new CustomerDetailResponse();
+
+        res.setId(customer.getId());
+        res.setTen(customer.getTen());
+        res.setEmail(customer.getEmail());
+        res.setSdt(customer.getSdt());
+        res.setLoaiKhach(customer.getLoaiKhach());
+        res.setDiemTichLuy(customer.getDiemTichLuy());
+
+        Integer totalOrders = orderRepository.countOrders(id);
+        BigDecimal totalSpending = orderRepository.sumSpending(id);
+
+        res.setTotalOrders(totalOrders);
+        res.setTotalSpending(totalSpending);
+
+        return res;
+
     }
 
     private CustomerResponse mapToResponse(Customer customer) {
+
         CustomerResponse response = new CustomerResponse();
+
         response.setId(customer.getId());
         response.setTen(customer.getTen());
         response.setEmail(customer.getEmail());
@@ -168,33 +216,42 @@ public class CustomerServiceImpl implements CustomerService {
         response.setDiemTichLuy(customer.getDiemTichLuy());
         response.setGhiChu(customer.getGhiChu());
         response.setCreatedAt(customer.getCreatedAt());
+
         return response;
+
     }
 
     private CustomerOrderHistoryResponse mapOrderHistory(Order order) {
+
         CustomerOrderHistoryResponse response = new CustomerOrderHistoryResponse();
+
         response.setOrderId(order.getId());
         response.setOrderDate(order.getOrderDate());
-        response.setStatus(order.getStatus() != null ? order.getStatus().name() : null);
-        response.setPaymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null);
-        response.setChannel(order.getChannel() != null ? order.getChannel().name() : null);
+        response.setStatus(order.getStatus());
+        response.setPaymentMethod(order.getPaymentMethod());
+        response.setChannel(order.getChannel());
         response.setTotal(order.getTotal());
+
         return response;
+
     }
 
     private void mapToEntity(CustomerRequest request, Customer customer) {
+
         customer.setTen(request.getTen());
         customer.setEmail(request.getEmail());
         customer.setSdt(request.getSdt());
         customer.setNgaySinh(request.getNgaySinh());
         customer.setGhiChu(request.getGhiChu());
 
-        if (request.getLoaiKhach() != null && !request.getLoaiKhach().isBlank()) {
+        if (request.getLoaiKhach() != null) {
             customer.setLoaiKhach(request.getLoaiKhach().toUpperCase());
         }
 
         if (request.getDiemTichLuy() != null) {
             customer.setDiemTichLuy(request.getDiemTichLuy());
         }
+
     }
+
 }

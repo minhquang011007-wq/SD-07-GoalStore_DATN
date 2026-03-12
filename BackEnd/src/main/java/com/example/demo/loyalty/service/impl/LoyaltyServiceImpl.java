@@ -8,220 +8,258 @@ import com.example.demo.loyalty.repository.*;
 import com.example.demo.loyalty.service.LoyaltyService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class LoyaltyServiceImpl implements LoyaltyService {
 
-    private final LoyaltyRepository loyaltyRepository;
     private final CustomerRepository customerRepository;
+    private final LoyaltyRepository loyaltyRepository;
     private final VipProgramRepository vipProgramRepository;
     private final VipHistoryRepository vipHistoryRepository;
     private final RewardRuleRepository rewardRuleRepository;
-    private final BirthdayNotificationLogRepository birthdayNotificationLogRepository;
+    private final BirthdayNotificationLogRepository birthdayRepository;
 
-    public LoyaltyServiceImpl(LoyaltyRepository loyaltyRepository,
-                              CustomerRepository customerRepository,
-                              VipProgramRepository vipProgramRepository,
-                              VipHistoryRepository vipHistoryRepository,
-                              RewardRuleRepository rewardRuleRepository,
-                              BirthdayNotificationLogRepository birthdayNotificationLogRepository) {
-        this.loyaltyRepository = loyaltyRepository;
+    public LoyaltyServiceImpl(
+            CustomerRepository customerRepository,
+            LoyaltyRepository loyaltyRepository,
+            VipProgramRepository vipProgramRepository,
+            VipHistoryRepository vipHistoryRepository,
+            RewardRuleRepository rewardRuleRepository,
+            BirthdayNotificationLogRepository birthdayRepository) {
+
         this.customerRepository = customerRepository;
+        this.loyaltyRepository = loyaltyRepository;
         this.vipProgramRepository = vipProgramRepository;
         this.vipHistoryRepository = vipHistoryRepository;
         this.rewardRuleRepository = rewardRuleRepository;
-        this.birthdayNotificationLogRepository = birthdayNotificationLogRepository;
+        this.birthdayRepository = birthdayRepository;
     }
 
     @Override
     public void addPoint(AddPointRequest request) {
+
         Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+                .orElseThrow();
 
-        int currentPoint = customer.getDiemTichLuy() == null ? 0 : customer.getDiemTichLuy();
-        int addPoint = request.getPoints() == null ? 0 : request.getPoints();
-
-        String oldLevel = customer.getLoaiKhach();
-        customer.setDiemTichLuy(currentPoint + addPoint);
-        updateVipLevel(customer, oldLevel, "Cộng điểm");
+        customer.setDiemTichLuy(customer.getDiemTichLuy() + request.getPoints());
 
         customerRepository.save(customer);
 
         LoyaltyPointHistory history = new LoyaltyPointHistory();
-        history.setCustomer(customer);
-        history.setPoints(addPoint);
+
+        history.setCustomerId(customer.getId());
+        history.setPoints(request.getPoints());
         history.setType("ADD");
         history.setNote(request.getNote());
+
         loyaltyRepository.save(history);
+
     }
 
     @Override
     public void deductPoint(DeductPointRequest request) {
+
         Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+                .orElseThrow();
 
-        int currentPoint = customer.getDiemTichLuy() == null ? 0 : customer.getDiemTichLuy();
-        int deductPoint = request.getPoints() == null ? 0 : request.getPoints();
-        int newPoint = Math.max(currentPoint - deductPoint, 0);
-
-        String oldLevel = customer.getLoaiKhach();
-        customer.setDiemTichLuy(newPoint);
-        updateVipLevel(customer, oldLevel, "Trừ điểm");
+        customer.setDiemTichLuy(customer.getDiemTichLuy() - request.getPoints());
 
         customerRepository.save(customer);
 
         LoyaltyPointHistory history = new LoyaltyPointHistory();
-        history.setCustomer(customer);
-        history.setPoints(deductPoint);
+
+        history.setCustomerId(customer.getId());
+        history.setPoints(request.getPoints());
         history.setType("SUBTRACT");
         history.setNote(request.getNote());
+
         loyaltyRepository.save(history);
+
     }
 
     @Override
     public List<LoyaltyHistoryResponse> getHistory(Integer customerId) {
-        return loyaltyRepository.findByCustomerId(customerId)
+
+        return loyaltyRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
                 .stream()
-                .map(this::mapHistory)
-                .collect(Collectors.toList());
+                .map(h -> {
+
+                    LoyaltyHistoryResponse r = new LoyaltyHistoryResponse();
+
+                    r.setId(h.getId());
+                    r.setPoints(h.getPoints());
+                    r.setType(h.getType());
+                    r.setNote(h.getNote());
+                    r.setCreatedAt(h.getCreatedAt());
+
+                    return r;
+
+                }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<LoyaltyCustomerResponse> getAllLoyaltyCustomers() {
+
         return customerRepository.findAll()
                 .stream()
-                .map(customer -> {
-                    LoyaltyCustomerResponse response = new LoyaltyCustomerResponse();
-                    response.setCustomerId(customer.getId());
-                    response.setTen(customer.getTen());
-                    response.setEmail(customer.getEmail());
-                    response.setSdt(customer.getSdt());
-                    response.setDiemTichLuy(customer.getDiemTichLuy());
-                    response.setLoaiKhach(customer.getLoaiKhach());
-                    return response;
-                })
-                .collect(Collectors.toList());
+                .map(c -> {
+
+                    LoyaltyCustomerResponse r = new LoyaltyCustomerResponse();
+
+                    r.setCustomerId(c.getId());
+                    r.setTen(c.getTen());
+                    r.setEmail(c.getEmail());
+                    r.setSdt(c.getSdt());
+                    r.setDiemTichLuy(c.getDiemTichLuy());
+                    r.setLoaiKhach(c.getLoaiKhach());
+
+                    return r;
+
+                }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<VipProgramResponse> getVipPrograms() {
-        return vipProgramRepository.findByIsActiveTrueOrderByMinPointsAsc()
+
+        return vipProgramRepository.findAll()
                 .stream()
-                .map(this::mapVipProgram)
-                .collect(Collectors.toList());
+                .map(v -> {
+
+                    VipProgramResponse r = new VipProgramResponse();
+
+                    r.setId(v.getId());
+                    r.setLevelName(v.getLevelName());
+                    r.setMinPoints(v.getMinPoints());
+                    r.setMinSpending(v.getMinSpending());
+                    r.setBenefit(v.getBenefit());
+                    r.setIsActive(v.getIsActive());
+
+                    return r;
+
+                }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<VipHistoryResponse> getVipHistory(Integer customerId) {
+
         return vipHistoryRepository.findByCustomerIdOrderByChangedAtDesc(customerId)
                 .stream()
-                .map(this::mapVipHistory)
-                .collect(Collectors.toList());
+                .map(v -> {
+
+                    VipHistoryResponse r = new VipHistoryResponse();
+
+                    r.setOldLevel(v.getOldLevel());
+                    r.setNewLevel(v.getNewLevel());
+                    r.setReason(v.getReason());
+                    r.setChangedAt(v.getChangedAt());
+
+                    return r;
+
+                }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<RewardRuleResponse> getRewardRules() {
-        return rewardRuleRepository.findByIsActiveTrueOrderByRequiredPointsAsc()
+
+        return rewardRuleRepository.findAll()
                 .stream()
-                .map(this::mapRewardRule)
-                .collect(Collectors.toList());
+                .map(r -> {
+
+                    RewardRuleResponse res = new RewardRuleResponse();
+
+                    res.setId(r.getId());
+                    res.setRewardName(r.getRewardName());
+                    res.setRequiredPoints(r.getRequiredPoints());
+                    res.setDiscountValue(r.getDiscountValue());
+                    res.setDescription(r.getDescription());
+                    res.setIsActive(r.getIsActive());
+
+                    return res;
+
+                }).collect(Collectors.toList());
+
     }
 
     @Override
     public List<BirthdayNotificationResponse> getBirthdayLogs(Integer customerId) {
-        return birthdayNotificationLogRepository.findByCustomerIdOrderBySentDateDesc(customerId)
+
+        return birthdayRepository.findByCustomerId(customerId)
                 .stream()
-                .map(this::mapBirthdayLog)
-                .collect(Collectors.toList());
+                .map(b -> {
+
+                    BirthdayNotificationResponse r = new BirthdayNotificationResponse();
+
+                    r.setId(b.getId());
+                    r.setCustomerId(b.getCustomerId());
+                    r.setSentDate(b.getSentDate());
+                    r.setChannel(b.getChannel());
+                    r.setNote(b.getNote());
+
+                    return r;
+
+                }).collect(Collectors.toList());
+
     }
 
-    private void updateVipLevel(Customer customer, String oldLevel, String reason) {
-        String newLevel = determineVipLevel(customer.getDiemTichLuy());
+    @Override
+    public void assignVip(AssignVipRequest request) {
 
-        if (newLevel == null) {
-            newLevel = "THUONG";
-        }
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow();
 
-        customer.setLoaiKhach(newLevel.equals("VIP") ? "VIP" : "THUONG");
+        String old = customer.getLoaiKhach();
 
-        if (oldLevel == null || !oldLevel.equals(newLevel)) {
-            VipHistory vipHistory = new VipHistory();
-            vipHistory.setCustomer(customer);
-            vipHistory.setOldLevel(oldLevel);
-            vipHistory.setNewLevel(newLevel);
-            vipHistory.setReason(reason);
-            vipHistoryRepository.save(vipHistory);
-        }
+        customer.setLoaiKhach(request.getNewLevel());
+
+        customerRepository.save(customer);
+
+        VipHistory history = new VipHistory();
+
+        history.setCustomerId(customer.getId());
+        history.setOldLevel(old);
+        history.setNewLevel(request.getNewLevel());
+        history.setReason(request.getReason());
+        history.setChangedAt(LocalDateTime.now());
+
+        vipHistoryRepository.save(history);
+
     }
 
-    private String determineVipLevel(Integer points) {
-        if (points == null) return "THUONG";
+    @Override
+    public void createVipProgram(VipProgramRequest request) {
 
-        List<VipProgram> programs = vipProgramRepository.findByIsActiveTrueOrderByMinPointsAsc();
-        String current = "THUONG";
+        VipProgram vip = new VipProgram();
 
-        for (VipProgram program : programs) {
-            if (points >= program.getMinPoints()) {
-                current = program.getLevelName();
-            }
-        }
-        return current;
+        vip.setLevelName(request.getLevelName());
+        vip.setMinPoints(request.getMinPoints());
+        vip.setMinSpending(request.getMinSpending());
+        vip.setBenefit(request.getBenefit());
+        vip.setIsActive(request.getIsActive());
+
+        vipProgramRepository.save(vip);
+
     }
 
-    private LoyaltyHistoryResponse mapHistory(LoyaltyPointHistory history) {
-        LoyaltyHistoryResponse response = new LoyaltyHistoryResponse();
-        response.setId(history.getId());
-        response.setCustomerId(history.getCustomer().getId());
-        response.setPoints(history.getPoints());
-        response.setType(history.getType());
-        response.setNote(history.getNote());
-        response.setCreatedAt(history.getCreatedAt());
-        return response;
+    @Override
+    public void createRewardRule(RewardRuleRequest request) {
+
+        RewardRule r = new RewardRule();
+
+        r.setRewardName(request.getRewardName());
+        r.setRequiredPoints(request.getRequiredPoints());
+        r.setDiscountValue(request.getDiscountValue());
+        r.setDescription(request.getDescription());
+        r.setIsActive(request.getIsActive());
+
+        rewardRuleRepository.save(r);
+
     }
 
-    private VipProgramResponse mapVipProgram(VipProgram program) {
-        VipProgramResponse response = new VipProgramResponse();
-        response.setId(program.getId());
-        response.setLevelName(program.getLevelName());
-        response.setMinPoints(program.getMinPoints());
-        response.setMinSpending(program.getMinSpending());
-        response.setBenefit(program.getBenefit());
-        response.setIsActive(program.getIsActive());
-        return response;
-    }
-
-    private VipHistoryResponse mapVipHistory(VipHistory history) {
-        VipHistoryResponse response = new VipHistoryResponse();
-        response.setId(history.getId());
-        response.setCustomerId(history.getCustomer().getId());
-        response.setOldLevel(history.getOldLevel());
-        response.setNewLevel(history.getNewLevel());
-        response.setReason(history.getReason());
-        response.setChangedAt(history.getChangedAt());
-        return response;
-    }
-
-    private RewardRuleResponse mapRewardRule(RewardRule rule) {
-        RewardRuleResponse response = new RewardRuleResponse();
-        response.setId(rule.getId());
-        response.setRewardName(rule.getRewardName());
-        response.setRequiredPoints(rule.getRequiredPoints());
-        response.setDiscountValue(rule.getDiscountValue());
-        response.setDescription(rule.getDescription());
-        response.setIsActive(rule.getIsActive());
-        return response;
-    }
-
-    private BirthdayNotificationResponse mapBirthdayLog(BirthdayNotificationLog log) {
-        BirthdayNotificationResponse response = new BirthdayNotificationResponse();
-        response.setId(log.getId());
-        response.setCustomerId(log.getCustomer().getId());
-        response.setTen(log.getCustomer().getTen());
-        response.setChannel(log.getChannel());
-        response.setNote(log.getNote());
-        response.setSentDate(log.getSentDate());
-        return response;
-    }
 }
