@@ -1,9 +1,25 @@
 package com.example.demo.order_return.service;
 
-import com.example.demo.order_return.dto.*;
-import com.example.demo.order_return.entity.*;
+import com.example.demo.auth.entity.User;
+import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.customer.entity.Customer;
+import com.example.demo.customer.repository.CustomerRepository;
+import com.example.demo.order_return.dto.CreateOrderItemRequest;
+import com.example.demo.order_return.dto.CreateOrderRequest;
+import com.example.demo.order_return.dto.OrderResponse;
+import com.example.demo.order_return.dto.UpdateOrderItemRequest;
+
+import com.example.demo.order_return.entity.Order;
+import com.example.demo.order_return.entity.OrderChannel;
+import com.example.demo.order_return.entity.OrderItem;
+import com.example.demo.order_return.entity.OrderStatus;
+import com.example.demo.order_return.entity.PaymentMethod;
 import com.example.demo.order_return.mapper.OrderMapper;
-import com.example.demo.order_return.repository.*;
+import com.example.demo.order_return.repository.OrderItemRepository;
+import com.example.demo.order_return.repository.OrderRepository;
+import com.example.demo.product_category.common.enums.VariantStockStatus;
+import com.example.demo.product_category.variant.entity.ProductVariant;
+import com.example.demo.product_category.variant.repository.ProductVariantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,25 +68,32 @@ public class OrderService {
             ProductVariant variant = productVariantRepository.findById(itemRequest.getVariantId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy variant"));
 
-            if (variant.getTonKho() < itemRequest.getQuantity()) {
+            if (variant.getStockQuantity() < itemRequest.getQuantity()) {
                 throw new RuntimeException("Không đủ tồn kho cho SKU: " + variant.getSku());
             }
 
-            BigDecimal price = variant.getGiaKhuyenMai() != null
-                    ? variant.getGiaKhuyenMai()
-                    : variant.getGiaBan();
+            BigDecimal price = variant.getSalePrice() != null
+                    ? variant.getSalePrice()
+                    : variant.getPrice();
+
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
             OrderItem orderItem = OrderItem.builder()
                     .variant(variant)
                     .quantity(itemRequest.getQuantity())
                     .unitPrice(price)
+                    .lineTotal(lineTotal)
                     .build();
 
             order.addItem(orderItem);
+            total = total.add(lineTotal);
 
-            total = total.add(price.multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
+            int newStock = variant.getStockQuantity() - itemRequest.getQuantity();
+            variant.setStockQuantity(newStock);
+            variant.setStockStatus(newStock > 0
+                    ? VariantStockStatus.CON_HANG
+                    : VariantStockStatus.HET_HANG);
 
-            variant.setTonKho(variant.getTonKho() - itemRequest.getQuantity());
             productVariantRepository.save(variant);
         }
 
@@ -143,13 +166,15 @@ public class OrderService {
         order.setStatus(parseStatus(status));
         Order saved = orderRepository.save(order);
 
-        auditLogService.log(
-                order.getStaff(),
-                "UPDATE_ORDER_STATUS",
-                "ORDER",
-                saved.getId(),
-                "Cập nhật trạng thái đơn thành " + saved.getStatus().name()
-        );
+        if (order.getStaff() != null) {
+            auditLogService.log(
+                    order.getStaff(),
+                    "UPDATE_ORDER_STATUS",
+                    "ORDER",
+                    saved.getId(),
+                    "Cập nhật trạng thái đơn thành " + saved.getStatus().name()
+            );
+        }
 
         return orderMapper.toResponse(saved);
     }
@@ -168,30 +193,42 @@ public class OrderService {
 
         int oldQty = item.getQuantity();
         int newQty = request.getQuantity();
-        int diff = newQty - oldQty;
 
+        if (newQty <= 0) {
+            throw new RuntimeException("Số lượng phải lớn hơn 0");
+        }
+
+        int diff = newQty - oldQty;
         ProductVariant variant = item.getVariant();
 
-        if (diff > 0 && variant.getTonKho() < diff) {
+        if (diff > 0 && variant.getStockQuantity() < diff) {
             throw new RuntimeException("Không đủ tồn kho để cập nhật");
         }
 
-        variant.setTonKho(variant.getTonKho() - diff);
+        int newStock = variant.getStockQuantity() - diff;
+        variant.setStockQuantity(newStock);
+        variant.setStockStatus(newStock > 0
+                ? VariantStockStatus.CON_HANG
+                : VariantStockStatus.HET_HANG);
+
         productVariantRepository.save(variant);
 
         item.setQuantity(newQty);
+        item.setLineTotal(item.getUnitPrice().multiply(BigDecimal.valueOf(newQty)));
         orderItemRepository.save(item);
 
         recalculateOrderTotal(order);
         Order saved = orderRepository.save(order);
 
-        auditLogService.log(
-                order.getStaff(),
-                "UPDATE_ORDER_ITEM",
-                "ORDER",
-                saved.getId(),
-                "Cập nhật item " + itemId + " từ " + oldQty + " thành " + newQty
-        );
+        if (order.getStaff() != null) {
+            auditLogService.log(
+                    order.getStaff(),
+                    "UPDATE_ORDER_ITEM",
+                    "ORDER",
+                    saved.getId(),
+                    "Cập nhật item " + itemId + " từ " + oldQty + " thành " + newQty
+            );
+        }
 
         return orderMapper.toResponse(saved);
     }
@@ -207,28 +244,36 @@ public class OrderService {
 
         for (OrderItem item : order.getItems()) {
             ProductVariant variant = item.getVariant();
-            variant.setTonKho(variant.getTonKho() + item.getQuantity());
+
+            int newStock = variant.getStockQuantity() + item.getQuantity();
+            variant.setStockQuantity(newStock);
+            variant.setStockStatus(newStock > 0
+                    ? VariantStockStatus.CON_HANG
+                    : VariantStockStatus.HET_HANG);
+
             productVariantRepository.save(variant);
         }
 
         order.setStatus(OrderStatus.HUY);
         orderRepository.save(order);
 
-        auditLogService.log(
-                order.getStaff(),
-                "CANCEL_ORDER",
-                "ORDER",
-                order.getId(),
-                "Hủy đơn hàng và hoàn lại tồn kho"
-        );
+        if (order.getStaff() != null) {
+            auditLogService.log(
+                    order.getStaff(),
+                    "CANCEL_ORDER",
+                    "ORDER",
+                    order.getId(),
+                    "Hủy đơn hàng và hoàn lại tồn kho"
+            );
+        }
     }
 
     private void recalculateOrderTotal(Order order) {
         BigDecimal total = BigDecimal.ZERO;
         for (OrderItem item : order.getItems()) {
-            total = total.add(
-                    item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
-            );
+            BigDecimal lineTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            item.setLineTotal(lineTotal);
+            total = total.add(lineTotal);
         }
         order.setTotal(total);
     }

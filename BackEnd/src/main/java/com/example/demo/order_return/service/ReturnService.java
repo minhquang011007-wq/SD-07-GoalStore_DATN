@@ -5,17 +5,19 @@ import com.example.demo.order_return.dto.ReturnResponse;
 import com.example.demo.order_return.entity.Order;
 import com.example.demo.order_return.entity.OrderItem;
 import com.example.demo.order_return.entity.OrderStatus;
-import com.example.demo.order_return.entity.ProductVariant;
 import com.example.demo.order_return.entity.Return;
 import com.example.demo.order_return.mapper.ReturnMapper;
 import com.example.demo.order_return.repository.OrderRepository;
-import com.example.demo.order_return.repository.ProductVariantRepository;
 import com.example.demo.order_return.repository.ReturnRepository;
+import com.example.demo.product_category.common.enums.VariantStockStatus;
+import com.example.demo.product_category.variant.entity.ProductVariant;
+import com.example.demo.product_category.variant.repository.ProductVariantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -41,11 +43,22 @@ public class ReturnService {
             throw new RuntimeException("Đơn đã hủy, không thể trả hàng");
         }
 
+        if (order.getStatus() == OrderStatus.TRA_HANG) {
+            throw new RuntimeException("Đơn hàng đã ở trạng thái trả hàng");
+        }
+
         BigDecimal refundTotal = BigDecimal.ZERO;
 
         for (OrderItem item : order.getItems()) {
             ProductVariant variant = item.getVariant();
-            variant.setTonKho(variant.getTonKho() + item.getQuantity());
+
+            int newStock = variant.getStockQuantity() + item.getQuantity();
+            variant.setStockQuantity(newStock);
+
+            if (newStock > 0) {
+                variant.setStockStatus(VariantStockStatus.CON_HANG);
+            }
+
             productVariantRepository.save(variant);
 
             refundTotal = refundTotal.add(
@@ -58,6 +71,7 @@ public class ReturnService {
 
         Return ret = Return.builder()
                 .order(order)
+                .returnDate(LocalDateTime.now())
                 .reason(request.getReason())
                 .note(request.getNote())
                 .refundTotal(refundTotal)

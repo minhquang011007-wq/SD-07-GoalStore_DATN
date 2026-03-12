@@ -1,7 +1,7 @@
 package com.example.demo.order_return.service;
 
+import com.example.demo.auth.entity.User;
 import com.example.demo.order_return.entity.AuditLog;
-import com.example.demo.order_return.entity.User;
 import com.example.demo.order_return.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,16 +14,16 @@ public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
 
-    public void log(User user, String action, String entity, Integer entityId, String detail) {
-        AuditLog log = AuditLog.builder()
+    public void log(User user, String action, String targetType, Integer targetId, String details) {
+        AuditLog auditLog = AuditLog.builder()
                 .user(user)
                 .action(action)
-                .entity(entity)
-                .entityId(entityId)
+                .targetType(targetType)
+                .targetId(targetId == null ? null : Long.valueOf(targetId))
+                .details(details)
                 .createdAt(LocalDateTime.now())
-                .detail(detail)
                 .build();
 
-        auditLogRepository.save(log);
+        auditLogRepository.save(auditLog);
     }
 }

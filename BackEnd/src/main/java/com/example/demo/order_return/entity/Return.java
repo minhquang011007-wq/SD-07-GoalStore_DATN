@@ -23,7 +23,7 @@ public class Return {
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
-    @Column(name = "return_date")
+    @Column(name = "return_date", nullable = false)
     private LocalDateTime returnDate;
 
     @Column(name = "reason")
@@ -34,4 +34,11 @@ public class Return {
 
     @Column(name = "note")
     private String note;
+
+    @PrePersist
+    public void prePersist() {
+        if (returnDate == null) {
+            returnDate = LocalDateTime.now();
+        }
+    }
 }
