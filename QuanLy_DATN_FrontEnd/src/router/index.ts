@@ -94,7 +94,6 @@ const router = createRouter({
           component: () => import("@/modules/audit/views/DocsView.vue"),
           meta: { roles: ["ADMIN"], moduleOwner: "audit" },
         },
-        // ... trong children của path "/"
         {
           path: "admin/permissions",
           component: () => import("@/modules/permission/views/PermissionHomeView.vue"),
