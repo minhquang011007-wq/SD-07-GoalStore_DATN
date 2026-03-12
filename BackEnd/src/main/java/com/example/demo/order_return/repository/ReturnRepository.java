@@ -7,5 +7,4 @@ import java.util.Optional;
 
 public interface ReturnRepository extends JpaRepository<Return, Integer> {
     Optional<Return> findByOrderId(Integer orderId);
-    boolean existsByOrderId(Integer orderId);
 }

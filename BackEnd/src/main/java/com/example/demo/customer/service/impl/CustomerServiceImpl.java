@@ -1,11 +1,15 @@
 package com.example.demo.customer.service.impl;
 
-import com.example.demo.customer.dto.*;
+import com.example.demo.customer.dto.CustomerOrderHistoryResponse;
+import com.example.demo.customer.dto.CustomerRequest;
+import com.example.demo.customer.dto.CustomerResponse;
+import com.example.demo.customer.dto.CustomerSpendingResponse;
+import com.example.demo.customer.dto.InactiveCustomerResponse;
 import com.example.demo.customer.entity.Customer;
 import com.example.demo.customer.repository.CustomerRepository;
 import com.example.demo.customer.service.CustomerService;
-import com.example.demo.order.entity.Order;
-import com.example.demo.order.repository.OrderRepository;
+import com.example.demo.order_return.entity.Order;
+import com.example.demo.order_return.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -171,9 +175,9 @@ public class CustomerServiceImpl implements CustomerService {
         CustomerOrderHistoryResponse response = new CustomerOrderHistoryResponse();
         response.setOrderId(order.getId());
         response.setOrderDate(order.getOrderDate());
-        response.setStatus(order.getStatus());
-        response.setPaymentMethod(order.getPaymentMethod());
-        response.setChannel(order.getChannel());
+        response.setStatus(order.getStatus() != null ? order.getStatus().name() : null);
+        response.setPaymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null);
+        response.setChannel(order.getChannel() != null ? order.getChannel().name() : null);
         response.setTotal(order.getTotal());
         return response;
     }

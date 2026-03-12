@@ -20,15 +20,15 @@ export interface CategoryResponse {
   productCount: number
 }
 
+export interface CategoryRequest {
+  name: string
+  description: string
+}
+
 export interface TagResponse {
   id: number
   name: string
   description?: string | null
-}
-
-export interface CategoryRequest {
-  name: string
-  description: string
 }
 
 export interface TagRequest {
@@ -43,6 +43,16 @@ export interface ProductImageResponse {
   sortOrder: number
 }
 
+export interface ProductVariantRequest {
+  sku: string
+  size: string
+  color: string
+  price: number | null
+  salePrice: number | null
+  stockQuantity: number | null
+  stockStatus: VariantStockStatus
+}
+
 export interface ProductVariantResponse {
   id: number
   sku: string
@@ -52,6 +62,20 @@ export interface ProductVariantResponse {
   salePrice?: number | null
   stockQuantity: number
   stockStatus: VariantStockStatus
+}
+
+export interface ProductAttributeRequest {
+  name: string
+  value: string
+  sortOrder: number | null
+}
+
+export interface ProductAttributeResponse {
+  id: number
+  productId: number
+  name: string
+  value: string
+  sortOrder: number
 }
 
 export interface ProductSummaryResponse {
@@ -92,6 +116,7 @@ export interface ProductDetailResponse {
   tags: TagResponse[]
   images: ProductImageResponse[]
   variants: ProductVariantResponse[]
+  attributes?: ProductAttributeResponse[]
 }
 
 export interface ProductRequest {
@@ -109,12 +134,54 @@ export interface ProductRequest {
   tagIds: number[]
 }
 
-export interface ProductVariantRequest {
-  sku: string
-  size: string
-  color: string
-  price: number | null
-  salePrice: number | null
-  stockQuantity: number | null
-  stockStatus: VariantStockStatus
+export interface ProductSearchParams {
+  page?: number
+  size?: number
+  keyword?: string
+  categoryIds?: number[]
+  tagIds?: number[]
+  displayStatus?: ProductDisplayStatus | ""
+  brand?: string
+  material?: string
+  inStock?: boolean | null
+  stockStatus?: VariantStockStatus | ""
+  hideOutOfStock?: boolean | null
+  createdWithinDays?: number | null
+  sort?: string
+  productType?: ProductType | ""
+  targetGender?: TargetGender | ""
+  releaseYear?: number | null
+  minPrice?: number | null
+  maxPrice?: number | null
+  categoryMatchAll?: boolean
+}
+
+export interface ProductQuickUpdateRequest {
+  name?: string
+  displayStatus?: ProductDisplayStatus
+  brand?: string
+  material?: string
+  season?: string
+}
+
+export interface ProductBatchUpdateItemRequest {
+  id: number
+  displayStatus?: ProductDisplayStatus
+  brand?: string
+  season?: string
+  material?: string
+}
+
+export interface ProductBatchUpdateRequest {
+  items: ProductBatchUpdateItemRequest[]
+}
+
+export interface ProductHistoryResponse {
+  id: number
+  productId: number
+  productName: string
+  action: string
+  note?: string | null
+  changedBy?: number | null
+  changedAt: string
 }

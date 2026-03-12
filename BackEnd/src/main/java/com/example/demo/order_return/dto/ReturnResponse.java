@@ -1,5 +1,6 @@
 package com.example.demo.order_return.dto;
 
+<<<<<<< HEAD
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -61,4 +62,21 @@ public class ReturnResponse {
     public void setNote(String note) {
         this.note = note;
     }
+=======
+import lombok.Builder;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+public class ReturnResponse {
+    private Integer id;
+    private Integer orderId;
+    private String reason;
+    private String note;
+    private BigDecimal refundTotal;
+    private LocalDateTime returnDate;
+>>>>>>> 1ee6927b872139f2bca9bc0c573f017c0986ebc4
 }

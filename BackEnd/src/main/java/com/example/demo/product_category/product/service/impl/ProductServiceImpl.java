@@ -16,8 +16,10 @@ import com.example.demo.product_category.product.entity.Product;
 import com.example.demo.product_category.product.repository.ProductRepository;
 import com.example.demo.product_category.product.repository.ProductSpecifications;
 import com.example.demo.product_category.product.service.ProductService;
+import com.example.demo.product_category.history.repository.ProductHistoryRepository;
 import com.example.demo.product_category.tag.entity.Tag;
 import com.example.demo.product_category.tag.repository.TagRepository;
+import com.example.demo.product_category.variant.entity.ProductVariant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final TagRepository tagRepository;
     private final ProductHistoryService productHistoryService;
+    private final ProductHistoryRepository productHistoryRepository;
 
     @Override
     public ProductDetailResponse create(ProductRequest request) {
@@ -122,7 +125,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void hardDelete(Integer id) {
         Product product = getEntity(id);
-        productHistoryService.log(product, "HARD_DELETE", "Xóa cứng sản phẩm");
+        productHistoryRepository.deleteByProductId(id);
         productRepository.delete(product);
     }
 
@@ -130,8 +133,10 @@ public class ProductServiceImpl implements ProductService {
     public ProductDetailResponse hideWhenOutOfStock(Integer id) {
         Product product = getEntity(id);
         int totalStock = product.getVariants() == null ? 0 : product.getVariants().stream()
-                .map(v -> v.getStockQuantity() == null ? 0 : v.getStockQuantity())
-                .mapToInt(Integer::intValue)
+                .filter(Objects::nonNull)
+                .filter(v -> v.getStockQuantity() != null)
+                .filter(v -> v.getStockQuantity() > 0)
+                .mapToInt(ProductVariant::getStockQuantity)
                 .sum();
         if (totalStock > 0) {
             throw new BadRequestException("Sản phẩm vẫn còn hàng, không thể ẩn tự động");
