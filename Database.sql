@@ -552,6 +552,10 @@ VALUES
 (5, N'Tính năng', N'Chống gió nhẹ', 1, 0, SYSDATETIME());
 GO
 
+INSERT INTO Customers (ten, email, sdt, ngay_sinh, loai_khach, diem_tich_luy, ghi_chu)
+VALUES
+(N'Nguyen Van A', 'a@gmail.com', '0900000001', '2004-01-01', 'THUONG', 0, N'Khach test');
+
 SELECT * FROM Users;
 SELECT * FROM Categories;
 SELECT * FROM Tags;
@@ -559,4 +563,9 @@ SELECT * FROM Products;
 SELECT * FROM Product_Variants;
 SELECT * FROM Product_Images;
 SELECT * FROM Product_History;
+SELECT * FROM Customers;
+SELECT * FROM Orders;
 GO
+
+ALTER TABLE Order_Items
+ADD line_total DECIMAL(12,2) NOT NULL DEFAULT 0;

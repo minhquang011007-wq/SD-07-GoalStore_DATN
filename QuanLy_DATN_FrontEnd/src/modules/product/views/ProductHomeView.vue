@@ -13,6 +13,8 @@ import AttributeModal from "@/modules/product/components/AttributeModal.vue"
 import ProductQuickEditModal from "@/modules/product/components/ProductQuickEditModal.vue"
 import ProductBatchUpdateBar from "@/modules/product/components/ProductBatchUpdateBar.vue"
 import ProductHighlights from "@/modules/product/components/ProductHighlights.vue"
+import ProductPageHeader from "@/modules/product/components/ProductPageHeader.vue"
+import VariantModal from "@/modules/product/components/VariantModal.vue"
 import {
   batchUpdateProducts,
   createCategory,
@@ -761,7 +763,7 @@ onMounted(async () => {
       <div>
         <p class="text-sm text-slate-500">Inventory / Product & Category</p>
         <h1 class="mt-1 text-2xl font-bold text-slate-900">Quản lý Catalog Goal Store</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600">Giữ nguyên các chức năng đang ổn, chỉ bổ sung quick update, batch update, top selling, newest và hard delete.</p>
+        <p class="mt-2 max-w-3xl text-sm text-slate-600">Quản lý sản phẩm, danh mục và thẻ. Hỗ trợ cập nhật nhanh, cập nhật hàng loạt và theo dõi sản phẩm nổi bật.</p>
       </div>
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">Tổng sản phẩm</div><div class="mt-1 text-xl font-semibold">{{ totalElements }}</div></div>
