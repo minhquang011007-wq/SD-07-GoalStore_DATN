@@ -47,12 +47,13 @@ public class ProductVariant {
     private VariantStockStatus stockStatus;
 
     @PrePersist
-    public void prePersist() {
+    @PreUpdate
+    public void syncStockStatus() {
         if (stockQuantity == null) {
             stockQuantity = 0;
         }
-        if (stockStatus == null) {
-            stockStatus = stockQuantity > 0 ? VariantStockStatus.CON_HANG : VariantStockStatus.HET_HANG;
-        }
+        stockStatus = stockQuantity > 0
+                ? VariantStockStatus.CON_HANG
+                : VariantStockStatus.HET_HANG;
     }
 }

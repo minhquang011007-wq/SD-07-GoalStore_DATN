@@ -1,12 +1,17 @@
 package com.example.demo.auth.controller;
 
+import com.example.demo.audit.service.AuditLogService;
 import com.example.demo.auth.config.JwtTokenProvider;
 import com.example.demo.auth.dto.LoginRequest;
 import com.example.demo.auth.dto.LoginResponse;
-import com.example.demo.auth.entity.User;
-import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.user.entity.UserEntity;
+import com.example.demo.user.repository.URepository;
+import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,27 +19,36 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-public class AuthController {
 
-    private final UserRepository userRepository;
+@Tag(name = "Authentication", description = "Login & Token Management")
+public class AuthController {
+    private final URepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuditLogService auditLogService;
 
-    @GetMapping("/health")
-    public String health() {
-        return "Backend OK";
-    }
-
+    @Operation(summary = "Đăng nhập")
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest req) {
-        User user = userRepository.findByUsername(req.getUsername())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong username or password"));
+    public ResponseEntity<LoginResponse> login(
+            @RequestBody LoginRequest req,
+            HttpServletRequest httpRequest
+    ) {
+        String ip = httpRequest.getRemoteAddr();
+        String userAgent = httpRequest.getHeader("User-Agent");
 
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+        UserEntity user = userRepository.findByUsername(req.getUsername()).orElse(null);
+        if (user == null) {
+            auditLogService.recordLoginAttempt(req.getUsername(), null, false, ip, userAgent);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong username or password");
         }
 
+        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+            auditLogService.recordLoginAttempt(user.getUsername(), user.getId(), false, ip, userAgent);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong username or password");
+        }
+
+        auditLogService.recordLoginAttempt(user.getUsername(), user.getId(), true, ip, userAgent);
         String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole());
-        return new LoginResponse(token, user.getUsername(), user.getRole());
+        return ResponseEntity.ok(new LoginResponse(token, user.getUsername(), user.getRole()));
     }
 }

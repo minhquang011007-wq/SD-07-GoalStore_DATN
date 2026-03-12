@@ -1,5 +1,7 @@
 package com.example.demo.product_category.common.mapper;
 
+import com.example.demo.product_category.attribute.dto.ProductAttributeResponse;
+import com.example.demo.product_category.attribute.entity.ProductAttribute;
 import com.example.demo.product_category.category.dto.CategoryResponse;
 import com.example.demo.product_category.category.entity.Category;
 import com.example.demo.product_category.common.enums.VariantStockStatus;
@@ -33,6 +35,18 @@ public final class ProductMapper {
 
     public static TagResponse toTagResponse(Tag tag) {
         return TagResponse.builder().id(tag.getId()).name(tag.getName()).description(tag.getDescription()).build();
+    }
+
+
+    public static ProductAttributeResponse toAttributeResponse(ProductAttribute attribute) {
+        return ProductAttributeResponse.builder()
+                .id(attribute.getId())
+                .productId(attribute.getProduct() == null ? null : attribute.getProduct().getId())
+                .name(attribute.getName())
+                .value(attribute.getValue())
+                .sortOrder(attribute.getSortOrder())
+                .createdAt(attribute.getCreatedAt())
+                .build();
     }
 
     public static ProductImageResponse toImageResponse(ProductImage image) {
@@ -77,6 +91,7 @@ public final class ProductMapper {
                 .tags(product.getTags().stream().map(ProductMapper::toTagResponse).toList())
                 .images(product.getImages().stream().sorted(Comparator.comparing(ProductImage::getSortOrder).thenComparing(ProductImage::getId)).map(ProductMapper::toImageResponse).toList())
                 .variants(product.getVariants().stream().sorted(Comparator.comparing(ProductVariant::getId)).map(ProductMapper::toVariantResponse).toList())
+                .attributes(product.getAttributes().stream().sorted(Comparator.comparing(ProductAttribute::getSortOrder).thenComparing(ProductAttribute::getId)).map(ProductMapper::toAttributeResponse).toList())
                 .build();
     }
 }

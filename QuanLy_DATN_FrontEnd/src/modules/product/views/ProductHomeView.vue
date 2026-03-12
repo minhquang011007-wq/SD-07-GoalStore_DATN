@@ -1,31 +1,46 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue"
-import { AlertCircle, Boxes, FolderTree, RefreshCcw } from "lucide-vue-next"
+import { AlertCircle, Boxes, RefreshCcw, X } from "lucide-vue-next"
+import ProductFilters from "@/modules/product/components/ProductFilters.vue"
+import ProductTable from "@/modules/product/components/ProductTable.vue"
+import ProductModal from "@/modules/product/components/ProductModal.vue"
+import ProductDetail from "@/modules/product/components/ProductDetail.vue"
 import CategoryManager from "@/modules/product/components/CategoryManager.vue"
 import CategoryModal from "@/modules/product/components/CategoryModal.vue"
-import ProductDetail from "@/modules/product/components/ProductDetail.vue"
-import ProductFilters from "@/modules/product/components/ProductFilters.vue"
-import ProductModal from "@/modules/product/components/ProductModal.vue"
-import ProductTable from "@/modules/product/components/ProductTable.vue"
 import TagManager from "@/modules/product/components/TagManager.vue"
 import TagModal from "@/modules/product/components/TagModal.vue"
+import AttributeModal from "@/modules/product/components/AttributeModal.vue"
+import ProductQuickEditModal from "@/modules/product/components/ProductQuickEditModal.vue"
+import ProductBatchUpdateBar from "@/modules/product/components/ProductBatchUpdateBar.vue"
+import ProductHighlights from "@/modules/product/components/ProductHighlights.vue"
 import {
+  batchUpdateProducts,
   createCategory,
   createProduct,
+  createProductAttribute,
   createTag,
   createVariant,
   deleteCategory,
   deleteProduct,
+  deleteProductAttribute,
   deleteProductImage,
   deleteTag,
   deleteVariant,
   fetchCategories,
+  fetchNewestProducts,
+  fetchProductAttributes,
   fetchProductDetail,
+  fetchProductHistory,
+  fetchProductImages,
   fetchTags,
+  fetchTopSellingProducts,
+  hardDeleteProduct,
   hideProductIfOutOfStock,
+  quickUpdateProduct,
   searchProducts,
   updateCategory,
   updateProduct,
+  updateProductAttribute,
   updateProductImage,
   updateTag,
   updateVariant,
@@ -35,8 +50,14 @@ import {
 import type {
   CategoryRequest,
   CategoryResponse,
+  ProductAttributeRequest,
+  ProductAttributeResponse,
+  ProductBatchUpdateItemRequest,
   ProductDetailResponse,
   ProductDisplayStatus,
+  ProductHistoryResponse,
+  ProductImageResponse,
+  ProductQuickUpdateRequest,
   ProductRequest,
   ProductSummaryResponse,
   ProductType,
@@ -71,11 +92,11 @@ const STOCK_STATUS_OPTIONS: Array<{ label: string; value: VariantStockStatus }> 
   { label: "Hết hàng", value: "HET_HANG" },
   { label: "Pre-order", value: "PRE_ORDER" },
 ]
-const sortOptions = [
+const SORT_OPTIONS = [
   { label: "Mới nhất", value: "newest" },
   { label: "Cũ nhất", value: "oldest" },
-  { label: "Tên A-Z", value: "name_asc" },
-  { label: "Tên Z-A", value: "name_desc" },
+  { label: "Tên A → Z", value: "name_asc" },
+  { label: "Tên Z → A", value: "name_desc" },
   { label: "Giá tăng dần", value: "price_asc" },
   { label: "Giá giảm dần", value: "price_desc" },
   { label: "Bán chạy", value: "best_selling" },
@@ -84,32 +105,63 @@ const sortOptions = [
 const activeTab = ref<"products" | "categories" | "tags">("products")
 const loadingProducts = ref(false)
 const loadingCategories = ref(false)
+const loadingTags = ref(false)
 const loadingDetail = ref(false)
+const loadingHighlights = ref(false)
 const savingProduct = ref(false)
 const savingCategory = ref(false)
 const savingTag = ref(false)
+const savingAttribute = ref(false)
+const savingQuickUpdate = ref(false)
+const savingBatchUpdate = ref(false)
 const uploadingProductImages = ref(false)
+
+const selectedProductId = ref<number | null>(null)
+const selectedProduct = ref<ProductDetailResponse | null>(null)
+const selectedProductHistory = ref<ProductHistoryResponse[]>([])
 const message = ref("")
 const errorMessage = ref("")
 
-const productPage = ref(0)
-const productSize = ref(20)
-const totalPages = ref(0)
-const totalElements = ref(0)
 const productItems = ref<ProductSummaryResponse[]>([])
+const topSellingItems = ref<ProductSummaryResponse[]>([])
+const newestItems = ref<ProductSummaryResponse[]>([])
 const categoryItems = ref<CategoryResponse[]>([])
 const tagItems = ref<TagResponse[]>([])
-const selectedProduct = ref<ProductDetailResponse | null>(null)
-const selectedProductId = ref<number | null>(null)
 
-const productFilters = reactive({ keyword: "", categoryId: "", displayStatus: "", inStock: "", sort: "newest" })
-const productFormVisible = ref(false)
-const categoryFormVisible = ref(false)
-const tagFormVisible = ref(false)
+const page = ref(0)
+const size = ref(20)
+const totalElements = ref(0)
+const totalPages = ref(0)
+
+const productFilters = reactive({
+  keyword: "",
+  categoryIds: [] as number[],
+  tagIds: [] as number[],
+  displayStatus: "" as ProductDisplayStatus | "",
+  productType: "" as ProductType | "",
+  targetGender: "" as TargetGender | "",
+  stockStatus: "" as VariantStockStatus | "",
+  brand: "",
+  material: "",
+  inStock: "" as "" | "true" | "false",
+  hideOutOfStock: false,
+  sort: "newest",
+})
+
+const productModalOpen = ref(false)
+const categoryModalOpen = ref(false)
+const variantModalOpen = ref(false)
+const tagModalOpen = ref(false)
+const attributeModalOpen = ref(false)
+const quickEditOpen = ref(false)
+
 const editingProductId = ref<number | null>(null)
 const editingCategoryId = ref<number | null>(null)
-const editingTagId = ref<number | null>(null)
 const editingVariantId = ref<number | null>(null)
+const editingTagId = ref<number | null>(null)
+const editingAttributeId = ref<number | null>(null)
+const quickEditProductId = ref<number | null>(null)
+const quickEditProductName = ref("")
 
 const productForm = reactive<ProductRequest>({
   name: "",
@@ -126,106 +178,581 @@ const productForm = reactive<ProductRequest>({
   tagIds: [],
 })
 const categoryForm = reactive<CategoryRequest>({ name: "", description: "" })
-const tagForm = reactive<TagRequest>({ name: "", description: "" })
 const variantForm = reactive<ProductVariantRequest>({ sku: "", size: "", color: "", price: null, salePrice: null, stockQuantity: 0, stockStatus: "CON_HANG" })
+const tagForm = reactive<TagRequest>({ name: "", description: "" })
+const attributeForm = reactive<ProductAttributeRequest>({ name: "", value: "", sortOrder: 0 })
+const quickEditForm = reactive<ProductQuickUpdateRequest>({ name: "", brand: "", material: "", season: "", displayStatus: undefined })
+const batchUpdateForm = reactive<Omit<ProductBatchUpdateItemRequest, "id">>({ brand: "", season: "", material: "", displayStatus: undefined })
 
-const stats = computed(() => [
-  { label: "Tổng sản phẩm", value: totalElements.value },
-  { label: "Categories", value: categoryItems.value.length },
-  { label: "Tags", value: tagItems.value.length },
-])
+const selectedProductIds = ref<number[]>([])
+const detailStats = computed(() => {
+  if (!selectedProduct.value) return { imageCount: 0, variantCount: 0, totalStock: 0 }
+  return {
+    imageCount: selectedProduct.value.images?.length || 0,
+    variantCount: selectedProduct.value.variants?.length || 0,
+    totalStock: (selectedProduct.value.variants || []).reduce((sum, item) => sum + (item.stockQuantity || 0), 0),
+  }
+})
 
-function setMessage(text = "") { message.value = text; if (text) errorMessage.value = "" }
-function setError(error: unknown) {
-  const res = (error as { response?: { data?: { message?: string; error?: string } } })?.response?.data
-  errorMessage.value = res?.message || res?.error || "Có lỗi xảy ra, kiểm tra backend rồi thử lại"
+function resetMessage() {
   message.value = ""
+  errorMessage.value = ""
 }
-function normalizeAsset(url?: string | null) {
-  if (!url) return ""
-  if (url.startsWith("http://") || url.startsWith("https://")) return url
-  const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "")
-  return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`
+function notifySuccess(text: string) {
+  message.value = text
+  errorMessage.value = ""
+}
+function notifyError(error: unknown) {
+  const fallback = "Có lỗi xảy ra khi gọi API backend."
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const anyError = error as { response?: { data?: { message?: string } | string } }
+    const data = anyError.response?.data
+    if (typeof data === "string") {
+      errorMessage.value = data
+      return
+    }
+    if (typeof data === "object" && data?.message) {
+      errorMessage.value = data.message
+      return
+    }
+  }
+  errorMessage.value = fallback
 }
 function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined) return "-"
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value)
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(value || 0))
 }
-function displayStatusLabel(status?: string | null) { return DISPLAY_STATUS_OPTIONS.find((i) => i.value === status)?.label || status || "-" }
-function stockStatusLabel(status?: string | null) { return STOCK_STATUS_OPTIONS.find((i) => i.value === status)?.label || status || "-" }
+function formatDate(value?: string | null) {
+  if (!value) return "-"
+  return new Intl.DateTimeFormat("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+}
+function statusLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    HIENTHI: "Hiển thị",
+    AN: "Ẩn",
+    NGUNG_BAN: "Ngừng bán",
+    CON_HANG: "Còn hàng",
+    HET_HANG: "Hết hàng",
+    PRE_ORDER: "Pre-order",
+    AO: "Áo",
+    QUAN: "Quần",
+    VO: "Vớ",
+    GANG_TAY: "Găng tay",
+    KHAC: "Khác",
+    NAM: "Nam",
+    NU: "Nữ",
+    TRE_EM: "Trẻ em",
+    UNISEX: "Unisex",
+  }
+  return labels[value || ""] || value || "-"
+}
+function toggleSelectedProduct(id: number) {
+  selectedProductIds.value = selectedProductIds.value.includes(id)
+    ? selectedProductIds.value.filter((item) => item !== id)
+    : [...selectedProductIds.value, id]
+}
+function toggleAllProducts() {
+  selectedProductIds.value = selectedProductIds.value.length === productItems.value.length ? [] : productItems.value.map((item) => item.id)
+}
+function clearBatchSelection() {
+  selectedProductIds.value = []
+  Object.assign(batchUpdateForm, { brand: "", season: "", material: "", displayStatus: undefined })
+}
 
+function setProductFormFromDetail(detail: ProductDetailResponse) {
+  productForm.name = detail.name
+  productForm.baseSku = detail.baseSku
+  productForm.brand = detail.brand || ""
+  productForm.season = detail.season || ""
+  productForm.productType = detail.productType
+  productForm.targetGender = detail.targetGender
+  productForm.material = detail.material || ""
+  productForm.description = detail.description || ""
+  productForm.releaseYear = detail.releaseYear || new Date().getFullYear()
+  productForm.displayStatus = detail.displayStatus
+  productForm.categoryIds = (detail.categories || []).map((item) => item.id)
+  productForm.tagIds = (detail.tags || []).map((item) => item.id)
+}
 function resetProductForm() {
-  Object.assign(productForm, { name: "", baseSku: "", brand: "", season: "", productType: "AO", targetGender: "NAM", material: "", description: "", releaseYear: new Date().getFullYear(), displayStatus: "HIENTHI", categoryIds: [], tagIds: [] })
   editingProductId.value = null
+  Object.assign(productForm, { name: "", baseSku: "", brand: "", season: "", productType: "AO", targetGender: "NAM", material: "", description: "", releaseYear: new Date().getFullYear(), displayStatus: "HIENTHI", categoryIds: [], tagIds: [] })
 }
-function resetCategoryForm() { Object.assign(categoryForm, { name: "", description: "" }); editingCategoryId.value = null }
-function resetTagForm() { Object.assign(tagForm, { name: "", description: "" }); editingTagId.value = null }
-function resetVariantForm() { Object.assign(variantForm, { sku: "", size: "", color: "", price: null, salePrice: null, stockQuantity: 0, stockStatus: "CON_HANG" }); editingVariantId.value = null }
+function resetCategoryForm() {
+  editingCategoryId.value = null
+  Object.assign(categoryForm, { name: "", description: "" })
+}
+function resetVariantForm() {
+  editingVariantId.value = null
+  Object.assign(variantForm, { sku: "", size: "", color: "", price: null, salePrice: null, stockQuantity: 0, stockStatus: "CON_HANG" })
+}
+function resetTagForm() {
+  editingTagId.value = null
+  Object.assign(tagForm, { name: "", description: "" })
+}
+function resetAttributeForm() {
+  editingAttributeId.value = null
+  Object.assign(attributeForm, { name: "", value: "", sortOrder: 0 })
+}
+function resetQuickEditForm() {
+  Object.assign(quickEditForm, { name: "", brand: "", material: "", season: "", displayStatus: undefined })
+}
 
-async function loadCategories() { loadingCategories.value = true; try { categoryItems.value = await fetchCategories() } catch (e) { setError(e) } finally { loadingCategories.value = false } }
-async function loadTags() { try { tagItems.value = await fetchTags() } catch { tagItems.value = [] } }
-async function loadProducts(page = productPage.value) {
+async function loadCategories() {
+  loadingCategories.value = true
+  try {
+    categoryItems.value = await fetchCategories()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingCategories.value = false
+  }
+}
+async function loadTags() {
+  loadingTags.value = true
+  try {
+    tagItems.value = await fetchTags()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingTags.value = false
+  }
+}
+async function loadProducts() {
   loadingProducts.value = true
   try {
-    const result = await searchProducts({
-      page,
-      size: productSize.value,
-      keyword: productFilters.keyword.trim() || undefined,
-      categoryIds: productFilters.categoryId ? [Number(productFilters.categoryId)] : undefined,
+    const response = await searchProducts({
+      page: page.value,
+      size: size.value,
+      keyword: productFilters.keyword || undefined,
+      categoryIds: productFilters.categoryIds,
+      tagIds: productFilters.tagIds,
       displayStatus: productFilters.displayStatus || undefined,
+      productType: productFilters.productType || undefined,
+      targetGender: productFilters.targetGender || undefined,
+      stockStatus: productFilters.stockStatus || undefined,
+      brand: productFilters.brand || undefined,
+      material: productFilters.material || undefined,
       inStock: productFilters.inStock === "" ? null : productFilters.inStock === "true",
+      hideOutOfStock: productFilters.hideOutOfStock,
       sort: productFilters.sort,
     })
-    productItems.value = result.content
-    productPage.value = result.page
-    totalPages.value = result.totalPages
-    totalElements.value = result.totalElements
-  } catch (e) { setError(e) } finally { loadingProducts.value = false }
+    productItems.value = response.content || []
+    totalElements.value = response.totalElements || 0
+    totalPages.value = response.totalPages || 0
+    selectedProductIds.value = selectedProductIds.value.filter((id) => productItems.value.some((item) => item.id === id))
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingProducts.value = false
+  }
 }
-async function openProductDetail(id: number) { selectedProductId.value = id; loadingDetail.value = true; try { selectedProduct.value = await fetchProductDetail(id); resetVariantForm() } catch (e) { setError(e) } finally { loadingDetail.value = false } }
-async function refreshAll() { await Promise.all([loadCategories(), loadTags(), loadProducts()]); if (selectedProductId.value) await openProductDetail(selectedProductId.value) }
+async function loadHighlights() {
+  loadingHighlights.value = true
+  try {
+    const [topSelling, newest] = await Promise.all([fetchTopSellingProducts(), fetchNewestProducts(6)])
+    topSellingItems.value = topSelling || []
+    newestItems.value = newest || []
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingHighlights.value = false
+  }
+}
+async function openProductDetail(id: number) {
+  selectedProductId.value = id
+  loadingDetail.value = true
+  try {
+    const [detail, images, attributes, history] = await Promise.all([
+      fetchProductDetail(id),
+      fetchProductImages(id).catch(() => []),
+      fetchProductAttributes(id).catch(() => []),
+      fetchProductHistory(id).catch(() => []),
+    ])
 
-function openCreateProduct() { resetProductForm(); productFormVisible.value = true }
-function openEditProduct(item: ProductSummaryResponse) {
-  const categoryIds = categoryItems.value.filter((c) => item.categoryNames.includes(c.name)).map((c) => c.id)
-  Object.assign(productForm, { name: item.name, baseSku: item.baseSku, brand: item.brand || "", season: item.season || "", productType: item.productType, targetGender: item.targetGender, material: item.material || "", description: selectedProduct.value?.id === item.id ? selectedProduct.value.description || "" : "", releaseYear: selectedProduct.value?.id === item.id ? selectedProduct.value.releaseYear || new Date().getFullYear() : new Date().getFullYear(), displayStatus: item.displayStatus, categoryIds, tagIds: selectedProduct.value?.id === item.id ? selectedProduct.value.tags.map((tag) => tag.id) : [] })
-  editingProductId.value = item.id
-  productFormVisible.value = true
+    selectedProduct.value = {
+      ...detail,
+      images: images.length ? images : detail.images || [],
+      variants: detail.variants || [],
+      categories: detail.categories || [],
+      tags: detail.tags || [],
+      attributes,
+    }
+    selectedProductHistory.value = history
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    loadingDetail.value = false
+  }
+}
+async function refreshAll() {
+  resetMessage()
+  await Promise.all([loadCategories(), loadTags(), loadProducts(), loadHighlights()])
+  if (selectedProductId.value) await openProductDetail(selectedProductId.value)
+}
+function applyFilters() {
+  page.value = 0
+  loadProducts()
+}
+function resetFilters() {
+  Object.assign(productFilters, { keyword: "", categoryIds: [], tagIds: [], displayStatus: "", productType: "", targetGender: "", stockStatus: "", brand: "", material: "", inStock: "", hideOutOfStock: false, sort: "newest" })
+  page.value = 0
+  loadProducts()
+}
+
+function openCreateProduct() {
+  resetProductForm()
+  productModalOpen.value = true
+}
+async function openEditProduct(id: number) {
+  try {
+    const detail = await fetchProductDetail(id)
+    editingProductId.value = id
+    setProductFormFromDetail(detail)
+    productModalOpen.value = true
+  } catch (error) {
+    notifyError(error)
+  }
 }
 async function submitProduct() {
   savingProduct.value = true
   try {
-    const payload = { ...productForm, releaseYear: productForm.releaseYear ? Number(productForm.releaseYear) : null, categoryIds: [...productForm.categoryIds], tagIds: [...productForm.tagIds] }
-    if (editingProductId.value) { await updateProduct(editingProductId.value, payload); setMessage("Cập nhật sản phẩm thành công") }
-    else { await createProduct(payload); setMessage("Tạo sản phẩm thành công") }
-    productFormVisible.value = false
+    if (editingProductId.value) {
+      await updateProduct(editingProductId.value, { ...productForm })
+      notifySuccess("Đã cập nhật sản phẩm.")
+    } else {
+      await createProduct({ ...productForm })
+      notifySuccess("Đã tạo sản phẩm mới.")
+    }
+    productModalOpen.value = false
     await refreshAll()
-  } catch (e) { setError(e) } finally { savingProduct.value = false }
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingProduct.value = false
+  }
 }
-async function handleDeleteProduct(id: number) { if (!window.confirm("Xóa mềm sản phẩm này?")) return; try { await deleteProduct(id); if (selectedProductId.value === id) selectedProduct.value = null; setMessage("Đã xóa sản phẩm"); await loadProducts() } catch (e) { setError(e) } }
-async function handleHideOOS(id: number) { try { await hideProductIfOutOfStock(id); setMessage("Đã cập nhật trạng thái sản phẩm"); await loadProducts(); if (selectedProductId.value === id) await openProductDetail(id) } catch (e) { setError(e) } }
+async function removeProduct(id: number) {
+  if (!window.confirm("Xóa mềm sản phẩm này?")) return
+  try {
+    await deleteProduct(id)
+    notifySuccess("Đã xóa sản phẩm.")
+    if (selectedProductId.value === id) {
+      selectedProductId.value = null
+      selectedProduct.value = null
+      selectedProductHistory.value = []
+    }
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function removeProductHard(id: number) {
+  if (!window.confirm("Xóa cứng sản phẩm này? Hành động này không thể hoàn tác.")) return
+  try {
+    await hardDeleteProduct(id)
+    notifySuccess("Đã xóa cứng sản phẩm.")
+    if (selectedProductId.value === id) {
+      selectedProductId.value = null
+      selectedProduct.value = null
+      selectedProductHistory.value = []
+    }
+    clearBatchSelection()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function runHideIfOutOfStock(id: number) {
+  try {
+    await hideProductIfOutOfStock(id)
+    notifySuccess("Đã cập nhật trạng thái ẩn nếu hết hàng.")
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function openQuickEdit(id: number) {
+  try {
+    const detail = await fetchProductDetail(id)
+    quickEditProductId.value = id
+    quickEditProductName.value = detail.name
+    Object.assign(quickEditForm, {
+      name: detail.name,
+      brand: detail.brand || "",
+      material: detail.material || "",
+      season: detail.season || "",
+      displayStatus: detail.displayStatus,
+    })
+    quickEditOpen.value = true
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function submitQuickEdit() {
+  if (!quickEditProductId.value) return
+  savingQuickUpdate.value = true
+  try {
+    await quickUpdateProduct(quickEditProductId.value, { ...quickEditForm })
+    notifySuccess("Đã cập nhật nhanh sản phẩm.")
+    quickEditOpen.value = false
+    resetQuickEditForm()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingQuickUpdate.value = false
+  }
+}
+async function submitBatchUpdate() {
+  if (!selectedProductIds.value.length) return
+  const payloadItems = selectedProductIds.value.map((id) => ({
+    id,
+    brand: batchUpdateForm.brand?.trim() || undefined,
+    season: batchUpdateForm.season?.trim() || undefined,
+    material: batchUpdateForm.material?.trim() || undefined,
+    displayStatus: batchUpdateForm.displayStatus,
+  }))
+  const hasAnyField = payloadItems.some((item) => item.brand || item.season || item.material || item.displayStatus)
+  if (!hasAnyField) {
+    errorMessage.value = "Batch update cần ít nhất 1 trường để cập nhật."
+    return
+  }
+  savingBatchUpdate.value = true
+  try {
+    await batchUpdateProducts({ items: payloadItems })
+    notifySuccess(`Đã batch update ${selectedProductIds.value.length} sản phẩm.`)
+    clearBatchSelection()
+    await refreshAll()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingBatchUpdate.value = false
+  }
+}
 
-function openCreateCategory() { resetCategoryForm(); categoryFormVisible.value = true }
-function openEditCategory(item: CategoryResponse) { Object.assign(categoryForm, { name: item.name, description: item.description || "" }); editingCategoryId.value = item.id; categoryFormVisible.value = true }
-async function submitCategory() { savingCategory.value = true; try { if (editingCategoryId.value) { await updateCategory(editingCategoryId.value, categoryForm); setMessage("Đã cập nhật category") } else { await createCategory(categoryForm); setMessage("Đã tạo category") } categoryFormVisible.value = false; await loadCategories() } catch (e) { setError(e) } finally { savingCategory.value = false } }
-async function handleDeleteCategory(id: number) { if (!window.confirm("Xóa category này?")) return; try { await deleteCategory(id); setMessage("Đã xóa category"); await loadCategories() } catch (e) { setError(e) } }
-async function onCategoryImageSelected(payload: { event: Event; id: number }) { const input = payload.event.target as HTMLInputElement; const file = input.files?.[0]; if (!file) return; try { await uploadCategoryImage(payload.id, file); setMessage("Đã upload ảnh category"); await loadCategories() } catch (e) { setError(e) } finally { input.value = "" } }
+function openCreateCategory() {
+  resetCategoryForm()
+  categoryModalOpen.value = true
+}
+function openEditCategory(category: CategoryResponse) {
+  editingCategoryId.value = category.id
+  categoryForm.name = category.name
+  categoryForm.description = category.description || ""
+  categoryModalOpen.value = true
+}
+async function submitCategory() {
+  savingCategory.value = true
+  try {
+    if (editingCategoryId.value) {
+      await updateCategory(editingCategoryId.value, { ...categoryForm })
+      notifySuccess("Đã cập nhật category.")
+    } else {
+      await createCategory({ ...categoryForm })
+      notifySuccess("Đã tạo category mới.")
+    }
+    categoryModalOpen.value = false
+    await loadCategories()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingCategory.value = false
+  }
+}
+async function removeCategory(id: number) {
+  if (!window.confirm("Xóa category này?")) return
+  try {
+    await deleteCategory(id)
+    notifySuccess("Đã xóa category.")
+    await loadCategories()
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function handleCategoryImageChange(payload: { id: number; event: Event }) {
+  const input = payload.event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  try {
+    await uploadCategoryImage(payload.id, file)
+    notifySuccess("Đã upload ảnh category.")
+    await loadCategories()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    input.value = ""
+  }
+}
 
-function openCreateTag() { resetTagForm(); tagFormVisible.value = true }
-function openEditTag(item: TagResponse) { Object.assign(tagForm, { name: item.name, description: item.description || "" }); editingTagId.value = item.id; tagFormVisible.value = true }
-async function submitTag() { savingTag.value = true; try { if (editingTagId.value) { await updateTag(editingTagId.value, tagForm); setMessage("Đã cập nhật tag") } else { await createTag(tagForm); setMessage("Đã tạo tag") } tagFormVisible.value = false; await loadTags() } catch (e) { setError(e) } finally { savingTag.value = false } }
-async function handleDeleteTag(id: number) { if (!window.confirm("Xóa tag này?")) return; try { await deleteTag(id); setMessage("Đã xóa tag"); await loadTags() } catch (e) { setError(e) } }
+function openCreateTag() {
+  resetTagForm()
+  tagModalOpen.value = true
+}
+function openEditTag(tag: TagResponse) {
+  editingTagId.value = tag.id
+  tagForm.name = tag.name
+  tagForm.description = tag.description || ""
+  tagModalOpen.value = true
+}
+async function submitTag() {
+  savingTag.value = true
+  try {
+    if (editingTagId.value) {
+      await updateTag(editingTagId.value, { ...tagForm })
+      notifySuccess("Đã cập nhật tag.")
+    } else {
+      await createTag({ ...tagForm })
+      notifySuccess("Đã tạo tag mới.")
+    }
+    tagModalOpen.value = false
+    await loadTags()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingTag.value = false
+  }
+}
+async function removeTag(id: number) {
+  if (!window.confirm("Xóa tag này?")) return
+  try {
+    await deleteTag(id)
+    notifySuccess("Đã xóa tag.")
+    await loadTags()
+  } catch (error) {
+    notifyError(error)
+  }
+}
 
-function editVariant(variant: ProductVariantResponse) { Object.assign(variantForm, { sku: variant.sku, size: variant.size, color: variant.color, price: variant.price, salePrice: variant.salePrice || null, stockQuantity: variant.stockQuantity, stockStatus: variant.stockStatus }); editingVariantId.value = variant.id }
-async function submitVariant() { if (!selectedProductId.value) return; try { if (editingVariantId.value) { await updateVariant(editingVariantId.value, variantForm); setMessage("Đã cập nhật variant") } else { await createVariant(selectedProductId.value, variantForm); setMessage("Đã thêm variant") } await openProductDetail(selectedProductId.value); await loadProducts(); resetVariantForm() } catch (e) { setError(e) } }
-async function handleDeleteVariant(id: number) { if (!selectedProductId.value || !window.confirm("Xóa variant này?")) return; try { await deleteVariant(id); setMessage("Đã xóa variant"); await openProductDetail(selectedProductId.value); await loadProducts() } catch (e) { setError(e) } }
-async function onProductImagesSelected(event: Event) { const input = event.target as HTMLInputElement; const files = input.files ? [...input.files] : []; if (!selectedProductId.value || !files.length) return; uploadingProductImages.value = true; try { await uploadProductImages(selectedProductId.value, files, true); setMessage("Đã upload ảnh sản phẩm"); await openProductDetail(selectedProductId.value) } catch (e) { setError(e) } finally { uploadingProductImages.value = false; input.value = "" } }
-async function handleSetAvatar(imageId: number) { if (!selectedProductId.value || !selectedProduct.value) return; const image = selectedProduct.value.images.find((i) => i.id === imageId); if (!image) return; try { await updateProductImage(imageId, { avatar: true, sortOrder: image.sortOrder }); setMessage("Đã đổi ảnh đại diện"); await openProductDetail(selectedProductId.value) } catch (e) { setError(e) } }
-async function handleDeleteImage(imageId: number) { if (!selectedProductId.value || !window.confirm("Xóa ảnh này?")) return; try { await deleteProductImage(imageId); setMessage("Đã xóa ảnh sản phẩm"); await openProductDetail(selectedProductId.value) } catch (e) { setError(e) } }
+function openCreateVariant() {
+  resetVariantForm()
+  variantModalOpen.value = true
+}
+function openEditVariant(variant: ProductVariantResponse) {
+  editingVariantId.value = variant.id
+  Object.assign(variantForm, { sku: variant.sku, size: variant.size, color: variant.color, price: variant.price, salePrice: variant.salePrice || null, stockQuantity: variant.stockQuantity, stockStatus: variant.stockStatus })
+  variantModalOpen.value = true
+}
+async function submitVariant() {
+  if (!selectedProductId.value) return
+  try {
+    if (editingVariantId.value) {
+      await updateVariant(editingVariantId.value, { ...variantForm })
+      notifySuccess("Đã cập nhật variant.")
+    } else {
+      await createVariant(selectedProductId.value, { ...variantForm })
+      notifySuccess("Đã tạo variant mới.")
+    }
+    variantModalOpen.value = false
+    await openProductDetail(selectedProductId.value)
+    await loadProducts()
+  } catch (error) {
+    notifyError(error)
+  }
+}
+async function removeVariant(id: number) {
+  if (!selectedProductId.value || !window.confirm("Xóa variant này?")) return
+  try {
+    await deleteVariant(id)
+    notifySuccess("Đã xóa variant.")
+    await openProductDetail(selectedProductId.value)
+    await loadProducts()
+  } catch (error) {
+    notifyError(error)
+  }
+}
 
-function resetFilters() { Object.assign(productFilters, { keyword: "", categoryId: "", displayStatus: "", inStock: "", sort: "newest" }); loadProducts(0) }
+function openCreateAttribute() {
+  resetAttributeForm()
+  attributeModalOpen.value = true
+}
+function openEditAttribute(attribute: ProductAttributeResponse) {
+  editingAttributeId.value = attribute.id
+  Object.assign(attributeForm, { name: attribute.name, value: attribute.value, sortOrder: attribute.sortOrder })
+  attributeModalOpen.value = true
+}
+async function submitAttribute() {
+  if (!selectedProductId.value) return
+  savingAttribute.value = true
+  try {
+    if (editingAttributeId.value) {
+      await updateProductAttribute(editingAttributeId.value, { ...attributeForm })
+      notifySuccess("Đã cập nhật thuộc tính.")
+    } else {
+      await createProductAttribute(selectedProductId.value, { ...attributeForm })
+      notifySuccess("Đã tạo thuộc tính mới.")
+    }
+    attributeModalOpen.value = false
+    await openProductDetail(selectedProductId.value)
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    savingAttribute.value = false
+  }
+}
+async function removeAttribute(id: number) {
+  if (!selectedProductId.value || !window.confirm("Xóa thuộc tính này?")) return
+  try {
+    await deleteProductAttribute(id)
+    notifySuccess("Đã xóa thuộc tính.")
+    await openProductDetail(selectedProductId.value)
+  } catch (error) {
+    notifyError(error)
+  }
+}
 
-onMounted(refreshAll)
+async function handleProductImagesChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files ? Array.from(input.files) : []
+  if (!selectedProductId.value || !files.length) return
+  uploadingProductImages.value = true
+  try {
+    await uploadProductImages(selectedProductId.value, files, true)
+    notifySuccess("Đã upload ảnh sản phẩm.")
+    await openProductDetail(selectedProductId.value)
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    uploadingProductImages.value = false
+    input.value = ""
+  }
+}
+async function setAvatar(image: ProductImageResponse) {
+  if (!selectedProductId.value) return
+  try {
+    await updateProductImage(image.id, { avatar: true, sortOrder: image.sortOrder })
+    notifySuccess("Đã đặt ảnh đại diện.")
+    await openProductDetail(selectedProductId.value)
+  } catch (error) {
+    notifyError(error)
+  }
+}
+function handleImageOrderChange(image: ProductImageResponse, event: Event) {
+  if (!selectedProductId.value) return
+  const target = event.target as HTMLInputElement
+  const nextSortOrder = Number(target.value)
+  if (!Number.isInteger(nextSortOrder) || nextSortOrder < 0) {
+    errorMessage.value = "Thứ tự ảnh phải là số nguyên không âm."
+    return
+  }
+  updateProductImage(image.id, { avatar: image.avatar, sortOrder: nextSortOrder })
+    .then(() => {
+      notifySuccess("Đã cập nhật thứ tự ảnh.")
+      return openProductDetail(selectedProductId.value as number)
+    })
+    .catch(notifyError)
+}
+async function removeImage(imageId: number) {
+  if (!selectedProductId.value || !window.confirm("Xóa ảnh này?")) return
+  try {
+    await deleteProductImage(imageId)
+    notifySuccess("Đã xóa ảnh.")
+    await openProductDetail(selectedProductId.value)
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+onMounted(async () => {
+  await refreshAll()
+})
 </script>
 
 <template>
@@ -234,10 +761,12 @@ onMounted(refreshAll)
       <div>
         <p class="text-sm text-slate-500">Inventory / Product & Category</p>
         <h1 class="mt-1 text-2xl font-bold text-slate-900">Quản lý Catalog Goal Store</h1>
-        <p class="mt-2 text-sm text-slate-600">Tách gọn module product, giữ đủ chức năng backend: product, category, tag, variant, image.</p>
+        <p class="mt-2 max-w-3xl text-sm text-slate-600">Giữ nguyên các chức năng đang ổn, chỉ bổ sung quick update, batch update, top selling, newest và hard delete.</p>
       </div>
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div v-for="item in stats" :key="item.label" class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">{{ item.label }}</div><div class="mt-1 text-xl font-semibold">{{ item.value }}</div></div>
+        <div class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">Tổng sản phẩm</div><div class="mt-1 text-xl font-semibold">{{ totalElements }}</div></div>
+        <div class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">Categories</div><div class="mt-1 text-xl font-semibold">{{ categoryItems.length }}</div></div>
+        <div class="rounded-xl bg-slate-50 p-3"><div class="text-xs text-slate-500">Tags</div><div class="mt-1 text-xl font-semibold">{{ tagItems.length }}</div></div>
         <button @click="refreshAll" class="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium hover:bg-slate-50"><RefreshCcw :size="16" /> Làm mới</button>
       </div>
     </div>
@@ -245,28 +774,57 @@ onMounted(refreshAll)
     <div v-if="message" class="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><Boxes :size="16" /> {{ message }}</div>
     <div v-if="errorMessage" class="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><AlertCircle :size="16" /> {{ errorMessage }}</div>
 
-    <div class="flex flex-wrap gap-2">
-      <button @click="activeTab = 'products'" :class="activeTab === 'products' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Sản phẩm</button>
-      <button @click="activeTab = 'categories'" :class="activeTab === 'categories' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Category</button>
-      <button @click="activeTab = 'tags'" :class="activeTab === 'tags' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Tag</button>
-    </div>
+    <ProductHighlights :top-selling="topSellingItems" :newest="newestItems" :loading="loadingHighlights" :format-currency="formatCurrency" @open="openProductDetail" />
 
-    <template v-if="activeTab === 'products'">
-      <ProductFilters :filters="productFilters" :category-items="categoryItems" :display-status-options="DISPLAY_STATUS_OPTIONS" :sort-options="sortOptions" @apply="loadProducts(0)" @reset="resetFilters" @create="openCreateProduct" @go-categories="activeTab = 'categories'" @go-tags="activeTab = 'tags'" />
-      <div class="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
-        <ProductTable :loading="loadingProducts" :items="productItems" :page="productPage" :total-pages="totalPages" :total-elements="totalElements" :normalize-asset="normalizeAsset" :format-currency="formatCurrency" :display-status-label="displayStatusLabel" :stock-status-label="stockStatusLabel" @detail="openProductDetail" @edit="openEditProduct" @delete="handleDeleteProduct" @hide-oos="handleHideOOS" @page="loadProducts" />
-        <div>
-          <div class="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-900"><FolderTree :size="18" /> Chi tiết sản phẩm</div>
-          <ProductDetail :loading="loadingDetail" :selected-product="selectedProduct" :uploading-product-images="uploadingProductImages" :variant-form="variantForm" :editing-variant-id="editingVariantId" :normalize-asset="normalizeAsset" :format-currency="formatCurrency" :display-status-label="displayStatusLabel" :stock-status-label="stockStatusLabel" :stock-status-options="STOCK_STATUS_OPTIONS" @edit-product="(id) => openEditProduct(productItems.find((item) => item.id === id)!)" @hide-oos="handleHideOOS" @delete-product="handleDeleteProduct" @upload-images="onProductImagesSelected" @set-avatar="handleSetAvatar" @delete-image="handleDeleteImage" @edit-variant="editVariant" @delete-variant="handleDeleteVariant" @submit-variant="submitVariant" @reset-variant="resetVariantForm" />
+    <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <div class="space-y-6">
+        <div class="rounded-2xl border bg-white p-4 shadow-sm">
+          <div class="flex flex-wrap gap-2 border-b pb-4">
+            <button @click="activeTab = 'products'" :class="activeTab === 'products' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Sản phẩm</button>
+            <button @click="activeTab = 'categories'" :class="activeTab === 'categories' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Category</button>
+            <button @click="activeTab = 'tags'" :class="activeTab === 'tags' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-lg px-4 py-2 text-sm font-medium">Tags</button>
+          </div>
+
+          <template v-if="activeTab === 'products'">
+            <ProductFilters :filters="productFilters" :category-items="categoryItems" :tag-items="tagItems" :display-status-options="DISPLAY_STATUS_OPTIONS" :product-types="PRODUCT_TYPES" :genders="GENDERS" :stock-status-options="STOCK_STATUS_OPTIONS" :sort-options="SORT_OPTIONS" @apply="applyFilters" @reset="resetFilters" @create-product="openCreateProduct" />
+            <ProductBatchUpdateBar :selected-count="selectedProductIds.length" :saving="savingBatchUpdate" :display-status-options="DISPLAY_STATUS_OPTIONS" :form="batchUpdateForm" @apply="submitBatchUpdate" @clear="clearBatchSelection" />
+            <ProductTable :items="productItems" :loading="loadingProducts" :selected-product-ids="selectedProductIds" :page="page" :total-pages="totalPages" :total-elements="totalElements" :format-currency="formatCurrency" :status-label="statusLabel" @toggle-all="toggleAllProducts" @toggle-select="toggleSelectedProduct" @view="openProductDetail" @edit="openEditProduct" @quick-edit="openQuickEdit" @hide-oos="runHideIfOutOfStock" @delete="removeProduct" @prev-page="page -= 1; loadProducts()" @next-page="page += 1; loadProducts()" />
+          </template>
+
+          <template v-else-if="activeTab === 'categories'">
+            <CategoryManager :loading="loadingCategories" :items="categoryItems" @create="openCreateCategory" @edit="openEditCategory" @delete="removeCategory" @upload-image="handleCategoryImageChange" @refresh="loadCategories" />
+          </template>
+
+          <template v-else>
+            <TagManager :loading="loadingTags" :items="tagItems" @create="openCreateTag" @edit="openEditTag" @delete="removeTag" />
+          </template>
         </div>
       </div>
-    </template>
 
-    <CategoryManager v-else-if="activeTab === 'categories'" :loading="loadingCategories" :items="categoryItems" :normalize-asset="normalizeAsset" @create="openCreateCategory" @edit="openEditCategory" @delete="handleDeleteCategory" @upload="onCategoryImageSelected" />
-    <TagManager v-else :items="tagItems" @create="openCreateTag" @edit="openEditTag" @delete="handleDeleteTag" />
+      <ProductDetail :selected-product="selectedProduct" :loading-detail="loadingDetail" :uploading-product-images="uploadingProductImages" :detail-stats="detailStats" :history-items="selectedProductHistory" :format-currency="formatCurrency" :format-date="formatDate" :status-label="statusLabel" @edit-product="openEditProduct" @quick-edit="openQuickEdit" @hide-oos="runHideIfOutOfStock" @delete-soft="removeProduct" @delete-hard="removeProductHard" @create-variant="openCreateVariant" @edit-variant="openEditVariant" @remove-variant="removeVariant" @upload-images="handleProductImagesChange" @set-avatar="setAvatar" @remove-image="removeImage" @image-order-change="(payload) => handleImageOrderChange(payload.image, payload.event)" @create-attribute="openCreateAttribute" @edit-attribute="openEditAttribute" @remove-attribute="removeAttribute" />
+    </div>
 
-    <ProductModal :open="productFormVisible" :saving="savingProduct" :editing-product-id="editingProductId" :form="productForm" :categories="categoryItems" :tags="tagItems" :product-types="PRODUCT_TYPES" :genders="GENDERS" :display-status-options="DISPLAY_STATUS_OPTIONS" @close="productFormVisible = false" @submit="submitProduct" />
-    <CategoryModal :open="categoryFormVisible" :saving="savingCategory" :editing-id="editingCategoryId" :form="categoryForm" @close="categoryFormVisible = false" @submit="submitCategory" />
-    <TagModal :open="tagFormVisible" :saving="savingTag" :editing-id="editingTagId" :form="tagForm" @close="tagFormVisible = false" @submit="submitTag" />
+    <ProductModal :open="productModalOpen" :editing-product-id="editingProductId" :form="productForm" :category-items="categoryItems" :tag-items="tagItems" :saving-product="savingProduct" :product-types="PRODUCT_TYPES" :genders="GENDERS" :display-status-options="DISPLAY_STATUS_OPTIONS" @close="productModalOpen = false" @submit="submitProduct" />
+    <ProductQuickEditModal :open="quickEditOpen" :product-name="quickEditProductName" :saving="savingQuickUpdate" :display-status-options="DISPLAY_STATUS_OPTIONS" :form="quickEditForm" @close="quickEditOpen = false" @submit="submitQuickEdit" />
+    <CategoryModal :open="categoryModalOpen" :saving="savingCategory" :editing-category-id="editingCategoryId" :form="categoryForm" @close="categoryModalOpen = false" @submit="submitCategory" />
+
+    <div v-if="variantModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="flex items-center justify-between"><h3 class="text-lg font-semibold">{{ editingVariantId ? 'Sửa variant' : 'Thêm variant' }}</h3><button @click="variantModalOpen = false" class="rounded-lg border p-2"><X :size="16" /></button></div>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <label class="space-y-2"><span class="text-sm">SKU variant</span><input v-model="variantForm.sku" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2"><span class="text-sm">Size</span><input v-model="variantForm.size" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2"><span class="text-sm">Màu</span><input v-model="variantForm.color" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2"><span class="text-sm">Giá bán</span><input v-model.number="variantForm.price" type="number" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2"><span class="text-sm">Giá khuyến mãi</span><input v-model.number="variantForm.salePrice" type="number" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2"><span class="text-sm">Tồn kho</span><input v-model.number="variantForm.stockQuantity" type="number" class="w-full rounded-xl border px-3 py-2" /></label>
+          <label class="space-y-2 md:col-span-2"><span class="text-sm">Trạng thái tồn kho</span><select v-model="variantForm.stockStatus" class="w-full rounded-xl border px-3 py-2"><option v-for="item in STOCK_STATUS_OPTIONS" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+        </div>
+        <div class="mt-6 flex justify-end gap-3"><button @click="variantModalOpen = false" class="rounded-xl border px-4 py-2 text-sm">Hủy</button><button @click="submitVariant" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white">{{ editingVariantId ? 'Lưu thay đổi' : 'Tạo variant' }}</button></div>
+      </div>
+    </div>
+
+    <TagModal :open="tagModalOpen" :saving="savingTag" :editing-tag-id="editingTagId" :form="tagForm" @close="tagModalOpen = false" @submit="submitTag" />
+    <AttributeModal :open="attributeModalOpen" :saving="savingAttribute" :editing-attribute-id="editingAttributeId" :form="attributeForm" @close="attributeModalOpen = false" @submit="submitAttribute" />
   </section>
 </template>

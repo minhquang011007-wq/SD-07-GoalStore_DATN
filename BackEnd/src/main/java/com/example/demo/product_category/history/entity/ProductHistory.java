@@ -26,8 +26,7 @@ public class ProductHistory {
     @Column(name = "action", nullable = false, length = 50)
     private String action;
 
-    @Lob
-    @Column(name = "note")
+    @Column(name = "note", columnDefinition = "nvarchar(max)")
     private String note;
 
     @Column(name = "changed_by")
