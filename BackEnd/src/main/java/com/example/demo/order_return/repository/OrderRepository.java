@@ -1,24 +1,32 @@
-package com.example.demo.order.repository;
+package com.example.demo.order_return.repository;
 
-import com.example.demo.order.entity.Order;
+import com.example.demo.order_return.entity.Order;
+import com.example.demo.order_return.entity.OrderChannel;
+import com.example.demo.order_return.entity.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Repository
 public interface OrderRepository extends JpaRepository<Order, Integer> {
+
+    List<Order> findByStatus(OrderStatus status);
+
+    List<Order> findByCustomerId(Integer customerId);
+
+    List<Order> findByChannel(OrderChannel channel);
+
+    List<Order> findByOrderDateBetween(LocalDateTime from, LocalDateTime to);
 
     List<Order> findByCustomerIdOrderByOrderDateDesc(Integer customerId);
 
     @Query("""
-        select o.customer.id, coalesce(sum(o.total),0)
+        select o.customer.id, coalesce(sum(o.total), 0)
         from Order o
         where o.status <> 'HUY'
         group by o.customer.id
-        order by coalesce(sum(o.total),0) desc
+        order by coalesce(sum(o.total), 0) desc
     """)
     List<Object[]> getCustomerSpending();
 
