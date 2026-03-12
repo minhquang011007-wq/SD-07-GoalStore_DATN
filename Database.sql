@@ -198,6 +198,19 @@ GO
 CREATE INDEX IX_PH_Product ON Product_History(product_id);
 GO
 
+CREATE TABLE Product_Attributes (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    product_id INT NOT NULL,
+    ten_thuoc_tinh NVARCHAR(100) NOT NULL,
+    gia_tri NVARCHAR(255) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_deleted BIT NOT NULL DEFAULT 0,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    updated_at DATETIME2 NULL,
+    CONSTRAINT FK_PA_Product
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+);
+
 /* ================================
    CUSTOMERS
 ================================ */
@@ -284,7 +297,7 @@ GO
 /* ================================
    SEED USERS
 ================================ */
-DECLARE @HASH VARCHAR(255) = '$2a$10$ealL0Qbu7OfvmSe6lQVcRu1Oq1kEobvnwfP8R0RFPrdWrQ3FebfXu';
+DECLARE @HASH VARCHAR(255) = '$2a$10$LRVazmfhnMx4b4fbcYm8KeEFY8xEDayH2w952xpSr9v7u.Zu5Meoi';
 
 INSERT INTO Users(username, email, password, role, trang_thai)
 VALUES
@@ -294,26 +307,24 @@ VALUES
 GO
 
 /* ================================
-   SEED CATEGORIES
+   SEED THÊM CATEGORIES
 ================================ */
 INSERT INTO Categories (ten_danh_muc, mo_ta, hinh_anh)
 VALUES
-(N'Áo bóng đá', N'Danh mục áo bóng đá', '/images/category/ao.jpg'),
-(N'Quần bóng đá', N'Danh mục quần bóng đá', '/images/category/quan.jpg'),
-(N'Vớ thể thao', N'Danh mục vớ thể thao', '/images/category/vo.jpg'),
-(N'Găng tay thủ môn', N'Danh mục găng tay', '/images/category/gangtay.jpg');
+(N'Áo tập luyện', N'Danh mục áo tập luyện', '/images/category/aotapluyen.jpg'),
+(N'Áo khoác thể thao', N'Danh mục áo khoác thể thao', '/images/category/aokhoac.jpg'),
+(N'Phụ kiện bóng đá', N'Danh mục phụ kiện bóng đá', '/images/category/phukien.jpg');
 GO
 
 /* ================================
-   SEED TAGS
+   SEED THÊM TAGS
 ================================ */
 INSERT INTO Tags (ten_tag, mo_ta)
 VALUES
-(N'Câu lạc bộ', N'Tag câu lạc bộ'),
-(N'Đội tuyển', N'Tag đội tuyển'),
-(N'Giải đấu', N'Tag giải đấu'),
-(N'Sân vận động', N'Tag sân vận động'),
-(N'Khuyến mãi', N'Tag khuyến mãi');
+(N'Mới về', N'Sản phẩm mới nhập'),
+(N'Bán chạy', N'Sản phẩm bán chạy'),
+(N'Hot deal', N'Sản phẩm giảm giá mạnh'),
+(N'Thủ môn', N'Sản phẩm dành cho thủ môn');
 GO
 
 SELECT id, username, email, role, trang_thai, created_at FROM Users;
@@ -440,60 +451,105 @@ CREATE INDEX IX_SecurityAlerts_Resolved ON Security_Alerts(resolved);
 GO
 
 /* ================================
-   SEED PRODUCTS
+   SEED THÊM PRODUCTS
 ================================ */
 INSERT INTO Products
-(ten_san_pham, sku_chuan, thuong_hieu, mua_bo_suu_tap, loai_san_pham, doi_tuong, chat_lieu, nam_phien_ban, mo_ta, trang_thai, is_deleted)
+(ten_san_pham, sku_chuan, thuong_hieu, mua_bo_suu_tap, loai_san_pham, doi_tuong, chat_lieu, nam_phien_ban, mo_ta, trang_thai, is_deleted, updated_at)
 VALUES
-(N'Nike Dri-FIT Legend 2026', 'NIKE-LEGEND-2026', N'Nike', N'2026', 'AO', 'NAM', N'Dri-FIT', 2026, N'Áo thể thao Nike chính hãng', 'HIENTHI', 0),
-(N'Adidas Predator Pro 2025', 'ADIDAS-PREDATOR-2025', N'Adidas', N'2025', 'AO', 'NAM', N'Polyester', 2025, N'Áo thể thao Adidas Predator', 'HIENTHI', 0);
+(N'Puma Ultra Training Tee 2026', 'PUMA-ULTRA-2026', N'Puma', N'2026', 'AO', 'NAM', N'Polyester', 2026, N'Áo tập luyện Puma Ultra thoáng khí', 'HIENTHI', 0, SYSDATETIME()),
+(N'GoalKeeper Pro Gloves 2025', 'GK-GLOVES-2025', N'GoalStore', N'2025', 'GANG_TAY', 'NAM', N'Cao su + Latex', 2025, N'Găng tay thủ môn chuyên dụng', 'HIENTHI', 0, SYSDATETIME()),
+(N'Active Sport Socks 2026', 'SOCKS-SPORT-2026', N'GoalStore', N'2026', 'VO', 'UNISEX', N'Cotton Blend', 2026, N'Vớ thể thao co giãn, thấm hút tốt', 'HIENTHI', 0, SYSDATETIME()),
+(N'Nike Academy Pants 2025', 'NIKE-PANTS-2025', N'Nike', N'2025', 'QUAN', 'NAM', N'Polyester', 2025, N'Quần tập Nike Academy', 'AN', 0, SYSDATETIME()),
+(N'Adidas Bench Jacket 2024', 'ADIDAS-JACKET-2024', N'Adidas', N'2024', 'KHAC', 'UNISEX', N'Windbreaker', 2024, N'Áo khoác nhẹ cho vận động viên', 'NGUNG_BAN', 0, SYSDATETIME());
 GO
 
 /* ================================
-   SEED PRODUCT - CATEGORY
+   SEED THÊM PRODUCT - CATEGORY
+   ID cũ:
+   Categories: 1..4
+   Thêm mới:   5..7
+   Products cũ: 1..2
+   Thêm mới:    3..7
 ================================ */
 INSERT INTO Product_Categories (product_id, category_id)
 VALUES
-(1, 1),
-(2, 1);
+(1, 1), -- Puma Ultra Training Tee -> Áo tập luyện
+(2, 3), -- GoalKeeper Pro Gloves -> Phụ kiện bóng đá
+(3, 3), -- Active Sport Socks -> Phụ kiện bóng đá
+(4, 2), -- Nike Academy Pants -> Áo khoác thể thao (tạm)
+(5, 2); -- Adidas Bench Jacket -> Áo khoác thể thao
 GO
 
 /* ================================
-   SEED PRODUCT - TAG
+   SEED THÊM PRODUCT - TAG
+   Tags cũ: 1..5
+   Thêm mới: 6..9
 ================================ */
 INSERT INTO Product_Tags (product_id, tag_id)
 VALUES
-(1, 1),
-(1, 3),
-(2, 2);
+(1, 1), -- Mới về
+(1, 2), -- Bán chạy
+(2, 4), -- Thủ môn
+(2, 2), -- Bán chạy
+(3, 1), -- Mới về
+(3, 3), -- Hot deal
+(4, 3), -- Hot deal
+(5, 2); -- Bán chạy
 GO
 
 /* ================================
-   SEED PRODUCT VARIANTS
+   SEED THÊM PRODUCT VARIANTS
+   Variant cũ đang có id 1..5
 ================================ */
 INSERT INTO Product_Variants
-(product_id, sku, size, mau_sac, gia_ban, gia_khuyen_mai, ton_kho, trang_thai, is_deleted)
+(product_id, sku, size, mau_sac, gia_ban, gia_khuyen_mai, ton_kho, trang_thai, is_deleted, updated_at)
 VALUES
-(1, 'NIKE-LEGEND-2026-M-BLUE', 'M', N'Xanh', 800000, 750000, 10, 'CON_HANG', 0),
-(1, 'NIKE-LEGEND-2026-L-BLUE', 'L', N'Xanh', 800000, 750000, 5,  'CON_HANG', 0),
-(1, 'NIKE-LEGEND-2026-M-RED',  'M', N'Đỏ',   800000, NULL,   0,  'HET_HANG', 0),
-(2, 'ADIDAS-PREDATOR-2025-M-BLACK', 'M', N'Đen', 900000, 850000, 8, 'CON_HANG', 0),
-(2, 'ADIDAS-PREDATOR-2025-L-BLACK', 'L', N'Đen', 900000, 850000, 4, 'CON_HANG', 0);
+(1, 'PUMA-ULTRA-2026-S-WHITE', 'S', N'Trắng', 650000, 590000, 12, 'CON_HANG', 0, SYSDATETIME()),
+(1, 'PUMA-ULTRA-2026-M-WHITE', 'M', N'Trắng', 650000, 590000, 7,  'CON_HANG', 0, SYSDATETIME()),
+(1, 'PUMA-ULTRA-2026-L-WHITE', 'L', N'Trắng', 650000, NULL,   0,  'HET_HANG', 0, SYSDATETIME()),
+
+(2, 'GK-GLOVES-2025-8-BLACK', '8', N'Đen', 550000, 520000, 6, 'CON_HANG', 0, SYSDATETIME()),
+(2, 'GK-GLOVES-2025-9-BLACK', '9', N'Đen', 550000, 520000, 2, 'CON_HANG', 0, SYSDATETIME()),
+
+(3, 'SOCKS-SPORT-2026-FREE-WHITE', 'FREE', N'Trắng', 120000, 99000, 30, 'CON_HANG', 0, SYSDATETIME()),
+(3, 'SOCKS-SPORT-2026-FREE-BLACK', 'FREE', N'Đen',   120000, 99000, 18, 'CON_HANG', 0, SYSDATETIME()),
+
+(4, 'NIKE-PANTS-2025-M-BLACK', 'M', N'Đen', 700000, 650000, 0, 'HET_HANG', 0, SYSDATETIME()),
+(4, 'NIKE-PANTS-2025-L-BLACK', 'L', N'Đen', 700000, 650000, 0, 'HET_HANG', 0, SYSDATETIME()),
+
+(5, 'ADIDAS-JACKET-2024-M-NAVY', 'M', N'Xanh navy', 1100000, 950000, 1, 'CON_HANG', 0, SYSDATETIME());
 GO
 
 /* ================================
-   SEED PRODUCT IMAGES
+   SEED THÊM PRODUCT IMAGES
 ================================ */
-INSERT INTO Product_Images (product_id, url, is_avatar, sort_order, is_deleted)
+INSERT INTO Product_Images (product_id, url, is_avatar, sort_order, is_deleted, updated_at)
 VALUES
-(1, '/images/products/nike1.jpg',   1, 0, 0),
-(1, '/images/products/nike2.jpg',   0, 1, 0),
-(1, '/images/products/nike3.jpg',   0, 2, 0),
-(2, '/images/products/adidas1.jpg', 1, 0, 0),
-(2, '/images/products/adidas2.jpg', 0, 1, 0);
+(1, '/images/products/puma1.jpg',   1, 0, 0, SYSDATETIME()),
+(1, '/images/products/puma2.jpg',   0, 1, 0, SYSDATETIME()),
+(2, '/images/products/gloves1.jpg', 1, 0, 0, SYSDATETIME()),
+(2, '/images/products/gloves2.jpg', 0, 1, 0, SYSDATETIME()),
+(3, '/images/products/socks1.jpg',  1, 0, 0, SYSDATETIME()),
+(4, '/images/products/pants1.jpg',  1, 0, 0, SYSDATETIME()),
+(5, '/images/products/jacket1.jpg', 1, 0, 0, SYSDATETIME());
 GO
 
-PRINT N'✅ DATABASE DATN recreated successfully and matched with backend.';
+/* ================================
+   SEED PRODUCT ATTRIBUTES
+================================ */
+INSERT INTO Product_Attributes (product_id, ten_thuoc_tinh, gia_tri, sort_order, is_deleted, updated_at)
+VALUES
+(1, N'Dòng sản phẩm', N'Training Tee', 1, 0, SYSDATETIME()),
+(1, N'Tính năng', N'Thoáng khí, nhanh khô', 2, 0, SYSDATETIME()),
+
+(2, N'Vị trí sử dụng', N'Thủ môn', 1, 0, SYSDATETIME()),
+(2, N'Độ bám', N'Cao', 2, 0, SYSDATETIME()),
+
+(3, N'Độ co giãn', N'Tốt', 1, 0, SYSDATETIME()),
+(3, N'Chất liệu', N'Cotton Blend', 2, 0, SYSDATETIME()),
+
+(4, N'Phong cách', N'Tập luyện', 1, 0, SYSDATETIME()),
+(5, N'Tính năng', N'Chống gió nhẹ', 1, 0, SYSDATETIME());
 GO
 
 SELECT * FROM Users;

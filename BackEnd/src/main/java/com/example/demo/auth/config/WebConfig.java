@@ -21,7 +21,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
-    }
+    }   
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
