@@ -13,8 +13,6 @@ import AttributeModal from "@/modules/product/components/AttributeModal.vue"
 import ProductQuickEditModal from "@/modules/product/components/ProductQuickEditModal.vue"
 import ProductBatchUpdateBar from "@/modules/product/components/ProductBatchUpdateBar.vue"
 import ProductHighlights from "@/modules/product/components/ProductHighlights.vue"
-import ProductPageHeader from "@/modules/product/components/ProductPageHeader.vue"
-import VariantModal from "@/modules/product/components/VariantModal.vue"
 import {
   batchUpdateProducts,
   createCategory,

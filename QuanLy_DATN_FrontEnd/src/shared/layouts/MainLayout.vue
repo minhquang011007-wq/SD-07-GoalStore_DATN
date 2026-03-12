@@ -40,16 +40,16 @@ const navigation: NavItem[] = [
   { name: "Sales Home", path: "/sales", icon: LayoutDashboard, roles: ["SALES"], note: "Chung" },
   { name: "Inventory Home", path: "/inventory", icon: LayoutDashboard, roles: ["INVENTORY"], note: "Chung" },
 
-  { name: "Products", path: "/inventory/products", icon: Boxes, roles: ["ADMIN", "INVENTORY"], note: "Module Product" },
-  { name: "Customers", path: "/sales/customers", icon: Users, roles: ["ADMIN", "SALES"], note: "Module Customer" },
+  { name: "Products", path: "/inventory/products", icon: Boxes, roles: ["ADMIN", "INVENTORY"], note: "Trang quản lý kho hàng" },
+  { name: "Customers", path: "/sales/customers", icon: Users, roles: ["ADMIN", "SALES"], note: "Trang quản lý khách hàng" },
   { name: "Companies", path: "/sales/companies", icon: Building2, roles: ["ADMIN", "SALES"], note: "Module Customer" },
   { name: "Deals", path: "/sales/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Tasks", path: "/sales/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"], note: "Module Sales" },
-  { name: "Orders", path: "/admin/orders", icon: CreditCard, roles: ["ADMIN"], note: "Module Order" },
-  { name: "Reports", path: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], note: "Module Audit" },
-  { name: "Docs", path: "/admin/docs", icon: BookOpen, roles: ["ADMIN"], note: "Module Audit" },
-  { name: "Settings", path: "/admin/settings", icon: Settings, roles: ["ADMIN"], note: "Module User" },
-  { name: "Permissions", path: "/admin/permissions", icon: Shield, roles: ["ADMIN"], note: "Module Permission" },
+  { name: "Orders", path: "/admin/orders", icon: CreditCard, roles: ["ADMIN"], note: "Trang quản lý đơn hàng" },
+  { name: "Reports", path: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], note: "Trang quản lý báo cáo" },
+  { name: "Docs", path: "/admin/docs", icon: BookOpen, roles: ["ADMIN"], note: "Trang tra cứu tài liệu" },
+  { name: "Settings", path: "/admin/settings", icon: Settings, roles: ["ADMIN"], note: "Trang quản lý tài khoản" },
+  { name: "Permissions", path: "/admin/permissions", icon: Shield, roles: ["ADMIN"], note: "Trang quản lý chức năng" },
 ]
 
 const filteredNavigation = computed(() => {
@@ -114,8 +114,7 @@ onUnmounted(() => {
       <div class="p-4 border-b flex items-center justify-between">
         <div class="flex items-center gap-2 overflow-hidden">
           <div>
-            <h3 v-if="sidebarOpen" class="text-sm font-semibold">GoalStore Frontend</h3>
-            <span v-if="sidebarOpen && role" class="text-xs text-muted-foreground">Role: {{ role }}</span>
+            <h3 v-if="sidebarOpen" class="text-sm font-semibold">GoalStore </h3>
           </div>
         </div>
 

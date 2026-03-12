@@ -26,7 +26,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
     List<Product> findNewestProducts(Pageable pageable);
 
     @Query(value = """
-        select top 10 p.*
+        select top 5 p.*
         from Products p
         join Product_Variants pv on pv.product_id = p.id
         left join Order_Items oi on oi.variant_id = pv.id
