@@ -4,6 +4,7 @@ import com.example.demo.common.exception.BadRequestException;
 import com.example.demo.common.exception.ResourceNotFoundException;
 import com.example.demo.customer.entity.Customer;
 import com.example.demo.order_return.entity.Order;
+import com.example.demo.order_return.entity.OrderItem;
 import com.example.demo.order_return.repository.OrderItemRepository;
 import com.example.demo.order_return.dto.CreateReturnRequest;
 import com.example.demo.order_return.dto.ReturnResponse;
