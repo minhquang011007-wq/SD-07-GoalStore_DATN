@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/permissions")
-@CrossOrigin("*")
 @Tag(name = "Role & Permission", description = "API phân quyền theo role")
 public class PermissionController {
 

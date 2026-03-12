@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/loyalty")
-@CrossOrigin("*")
+
 public class LoyaltyController {
 
     private final LoyaltyService loyaltyService;

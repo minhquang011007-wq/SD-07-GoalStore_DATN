@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/audit")
-@CrossOrigin("*")
+
 @Tag(name = "Audit Log", description = "API audit, report, login history, alerts")
 public class AuditLogController {
     @Autowired

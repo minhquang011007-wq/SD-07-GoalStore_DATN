@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin("*")
 @Tag(name = "User Management", description = "API quản lý tài khoản người dùng")
 public class UserController {
 

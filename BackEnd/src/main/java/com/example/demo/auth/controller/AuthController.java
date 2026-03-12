@@ -19,7 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin("*")
+
 @Tag(name = "Authentication", description = "Login & Token Management")
 public class AuthController {
     private final URepository userRepository;
