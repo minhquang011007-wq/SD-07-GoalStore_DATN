@@ -1,4 +1,4 @@
 package com.example.demo.common.exception;
 
-public class a {
+public class BusinessException {
 }
