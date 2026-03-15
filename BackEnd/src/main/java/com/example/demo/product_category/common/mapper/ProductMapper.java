@@ -10,6 +10,8 @@ import com.example.demo.product_category.image.entity.ProductImage;
 import com.example.demo.product_category.product.dto.ProductDetailResponse;
 import com.example.demo.product_category.product.dto.ProductSummaryResponse;
 import com.example.demo.product_category.product.entity.Product;
+import com.example.demo.product_category.product_public.dto.PublicProductDetailResponse;
+import com.example.demo.product_category.product_public.dto.PublicProductSummaryResponse;
 import com.example.demo.product_category.tag.dto.TagResponse;
 import com.example.demo.product_category.tag.entity.Tag;
 import com.example.demo.product_category.variant.dto.ProductVariantResponse;
@@ -78,6 +80,57 @@ public final class ProductMapper {
                 .categoryNames(product.getCategories().stream().map(Category::getName).collect(Collectors.toCollection(java.util.LinkedHashSet::new)))
                 .minPrice(minPrice).maxPrice(maxPrice).totalStock(totalStock).stockStatus(stockStatus)
                 .soldQuantity(soldQuantity == null ? 0L : soldQuantity).createdAt(product.getCreatedAt()).build();
+    }
+
+
+    public static PublicProductSummaryResponse toPublicSummary(Product product) {
+        List<ProductVariant> variants = product.getVariants() == null ? List.of() : product.getVariants().stream().toList();
+        BigDecimal minPrice = variants.stream().map(v -> v.getSalePrice() != null ? v.getSalePrice() : v.getPrice()).filter(java.util.Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
+        BigDecimal maxPrice = variants.stream().map(v -> v.getSalePrice() != null ? v.getSalePrice() : v.getPrice()).filter(java.util.Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
+        ProductVariant firstVariant = variants.stream().sorted(Comparator.comparing(ProductVariant::getId)).findFirst().orElse(null);
+        int totalStock = variants.stream().map(ProductVariant::getStockQuantity).filter(java.util.Objects::nonNull).mapToInt(Integer::intValue).sum();
+        String thumbnail = product.getImages() == null ? null : product.getImages().stream().filter(i -> Boolean.TRUE.equals(i.getAvatar())).map(ProductImage::getImageUrl).findFirst().orElse(product.getImages().stream().findFirst().map(ProductImage::getImageUrl).orElse(null));
+        VariantStockStatus stockStatus = variants.stream().anyMatch(v -> v.getStockStatus() == VariantStockStatus.PRE_ORDER) ? VariantStockStatus.PRE_ORDER : totalStock > 0 ? VariantStockStatus.CON_HANG : VariantStockStatus.HET_HANG;
+        return PublicProductSummaryResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .baseSku(product.getBaseSku())
+                .brand(product.getBrand())
+                .imageUrl(thumbnail)
+                .price(firstVariant != null ? firstVariant.getPrice() : minPrice)
+                .salePrice(firstVariant != null ? firstVariant.getSalePrice() : null)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .totalStock(totalStock)
+                .stockStatus(stockStatus)
+                .productType(product.getProductType())
+                .targetGender(product.getTargetGender())
+                .categoryNames(product.getCategories().stream().map(Category::getName).collect(Collectors.toCollection(java.util.LinkedHashSet::new)))
+                .build();
+    }
+
+    public static PublicProductDetailResponse toPublicDetail(Product product) {
+        ProductDetailResponse detail = toDetail(product);
+        return PublicProductDetailResponse.builder()
+                .id(detail.getId())
+                .name(detail.getName())
+                .baseSku(detail.getBaseSku())
+                .brand(detail.getBrand())
+                .season(detail.getSeason())
+                .productType(detail.getProductType())
+                .targetGender(detail.getTargetGender())
+                .material(detail.getMaterial())
+                .description(detail.getDescription())
+                .releaseYear(detail.getReleaseYear())
+                .displayStatus(detail.getDisplayStatus())
+                .thumbnailUrl(detail.getThumbnailUrl())
+                .createdAt(detail.getCreatedAt())
+                .categories(detail.getCategories())
+                .tags(detail.getTags())
+                .images(detail.getImages())
+                .variants(detail.getVariants())
+                .attributes(detail.getAttributes())
+                .build();
     }
 
     public static ProductDetailResponse toDetail(Product product) {

@@ -1,5 +1,6 @@
 package com.example.demo.order_return.controller;
 
+import com.example.demo.order_return.dto.CreateCheckoutRequest;
 import com.example.demo.order_return.dto.CreateOrderRequest;
 import com.example.demo.order_return.dto.OrderResponse;
 import com.example.demo.order_return.dto.UpdateOrderItemRequest;
@@ -23,6 +24,11 @@ public class OrderController {
     @PostMapping
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
         return orderService.createOrder(request);
+    }
+
+    @PostMapping("/checkout")
+    public OrderResponse checkout(@Valid @RequestBody CreateCheckoutRequest request) {
+        return orderService.createOrderFromCart(request);
     }
 
     @GetMapping

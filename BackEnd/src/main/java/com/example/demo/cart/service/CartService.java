@@ -35,7 +35,7 @@ public class CartService {
         this.productVariantRepository = productVariantRepository;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public CartResponse getCart(Integer customerId) {
         Cart cart = getOrCreateCart(customerId);
         return toResponse(cart);
@@ -49,11 +49,14 @@ public class CartService {
 
         int quantity = request.getQuantity() == null || request.getQuantity() <= 0 ? 1 : request.getQuantity();
         Optional<CartItem> existing = cartItemRepository.findByCartIdAndVariantId(cart.getId(), variant.getId());
+        int finalQty = existing.map(cartItem -> cartItem.getQuantity() + quantity).orElse(quantity);
+        validateStock(variant, finalQty);
+
         CartItem item = existing.orElseGet(CartItem::new);
         item.setCart(cart);
         item.setVariant(variant);
-        item.setQuantity(existing.map(cartItem -> cartItem.getQuantity() + quantity).orElse(quantity));
-        item.setUnitPrice(variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice());
+        item.setQuantity(finalQty);
+        item.setUnitPrice(resolveVariantPrice(variant));
         cartItemRepository.save(item);
         return toResponse(getOrCreateCart(request.getCustomerId()));
     }
@@ -65,7 +68,9 @@ public class CartService {
         if (request.getQuantity() == null || request.getQuantity() <= 0) {
             throw new RuntimeException("Số lượng phải lớn hơn 0");
         }
+        validateStock(item.getVariant(), request.getQuantity());
         item.setQuantity(request.getQuantity());
+        item.setUnitPrice(resolveVariantPrice(item.getVariant()));
         cartItemRepository.save(item);
         return toResponse(item.getCart());
     }
@@ -96,6 +101,22 @@ public class CartService {
             cart.setItems(new ArrayList<>());
             return cartRepository.save(cart);
         });
+    }
+
+    private void validateStock(ProductVariant variant, int quantity) {
+        if (quantity <= 0) {
+            throw new RuntimeException("Số lượng phải lớn hơn 0");
+        }
+        if (variant.getStockQuantity() == null || variant.getStockQuantity() <= 0) {
+            throw new RuntimeException("Biến thể này đang hết hàng");
+        }
+        if (variant.getStockQuantity() < quantity) {
+            throw new RuntimeException("Số lượng trong giỏ vượt quá tồn kho cho SKU: " + variant.getSku());
+        }
+    }
+
+    private BigDecimal resolveVariantPrice(ProductVariant variant) {
+        return variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice();
     }
 
     private CartResponse toResponse(Cart cart) {

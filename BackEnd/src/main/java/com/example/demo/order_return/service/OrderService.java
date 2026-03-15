@@ -2,8 +2,14 @@ package com.example.demo.order_return.service;
 
 import com.example.demo.auth.entity.User;
 import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.cart.entity.Cart;
+import com.example.demo.cart.entity.CartItem;
+import com.example.demo.cart.repository.CartRepository;
 import com.example.demo.customer.entity.Customer;
 import com.example.demo.customer.repository.CustomerRepository;
+import com.example.demo.customer_address.entity.CustomerAddress;
+import com.example.demo.customer_address.repository.CustomerAddressRepository;
+import com.example.demo.order_return.dto.CreateCheckoutRequest;
 import com.example.demo.order_return.dto.CreateOrderItemRequest;
 import com.example.demo.order_return.dto.CreateOrderRequest;
 import com.example.demo.order_return.dto.OrderResponse;
@@ -34,6 +40,8 @@ public class OrderService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final CustomerAddressRepository customerAddressRepository;
+    private final CartRepository cartRepository;
     private final OrderMapper orderMapper;
     private final AuditLogService auditLogService;
 
@@ -55,15 +63,15 @@ public class OrderService {
                 .receiverName(request.getReceiverName() != null ? request.getReceiverName() : customer.getTen())
                 .receiverPhone(request.getReceiverPhone() != null ? request.getReceiverPhone() : customer.getSdt())
                 .shippingAddress(request.getShippingAddress())
-                .note(request.getNote())
+                .note(trimToNull(request.getNote()))
                 .orderDate(LocalDateTime.now())
                 .status(OrderStatus.MOI)
                 .paymentMethod(parsePaymentMethod(request.getPaymentMethod()))
                 .paymentStatus(request.getPaymentStatus() == null ? "UNPAID" : request.getPaymentStatus().toUpperCase())
                 .channel(parseChannel(request.getChannel()))
                 .subtotal(BigDecimal.ZERO)
-                .shippingFee(request.getShippingFee() == null ? BigDecimal.ZERO : request.getShippingFee())
-                .discountAmount(request.getDiscountAmount() == null ? BigDecimal.ZERO : request.getDiscountAmount())
+                .shippingFee(defaultMoney(request.getShippingFee()))
+                .discountAmount(defaultMoney(request.getDiscountAmount()))
                 .total(BigDecimal.ZERO)
                 .build();
 
@@ -72,11 +80,9 @@ public class OrderService {
             ProductVariant variant = productVariantRepository.findById(itemRequest.getVariantId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy variant"));
 
-            if (variant.getStockQuantity() < itemRequest.getQuantity()) {
-                throw new RuntimeException("Không đủ tồn kho cho SKU: " + variant.getSku());
-            }
+            validateStock(variant, itemRequest.getQuantity());
 
-            BigDecimal price = variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice();
+            BigDecimal price = resolvePrice(variant);
             BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
             OrderItem orderItem = OrderItem.builder()
@@ -88,11 +94,7 @@ public class OrderService {
 
             order.addItem(orderItem);
             subtotal = subtotal.add(lineTotal);
-
-            int newStock = variant.getStockQuantity() - itemRequest.getQuantity();
-            variant.setStockQuantity(newStock);
-            variant.setStockStatus(newStock > 0 ? VariantStockStatus.CON_HANG : VariantStockStatus.HET_HANG);
-            productVariantRepository.save(variant);
+            decreaseStock(variant, itemRequest.getQuantity());
         }
 
         order.setSubtotal(subtotal);
@@ -107,6 +109,67 @@ public class OrderService {
         return orderMapper.toResponse(savedOrder);
     }
 
+    @Transactional
+    public OrderResponse createOrderFromCart(CreateCheckoutRequest request) {
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+
+        Cart cart = cartRepository.findByCustomerId(customer.getId())
+                .orElseThrow(() -> new RuntimeException("Giỏ hàng của khách đang trống"));
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+            throw new RuntimeException("Không thể checkout vì giỏ hàng đang trống");
+        }
+
+        CustomerAddress address = resolveCheckoutAddress(customer.getId(), request.getAddressId());
+
+        Order order = Order.builder()
+                .customer(customer)
+                .code(generateOrderCode())
+                .receiverName(address.getReceiverName())
+                .receiverPhone(address.getReceiverPhone())
+                .shippingAddress(buildFullAddress(address))
+                .note(trimToNull(request.getNote()))
+                .orderDate(LocalDateTime.now())
+                .status(OrderStatus.MOI)
+                .paymentMethod(parsePaymentMethod(request.getPaymentMethod()))
+                .paymentStatus("UNPAID")
+                .channel(OrderChannel.ONLINE)
+                .subtotal(BigDecimal.ZERO)
+                .shippingFee(defaultMoney(request.getShippingFee()))
+                .discountAmount(defaultMoney(request.getDiscountAmount()))
+                .total(BigDecimal.ZERO)
+                .build();
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (CartItem cartItem : cart.getItems()) {
+            ProductVariant variant = productVariantRepository.findById(cartItem.getVariant().getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy variant trong giỏ hàng"));
+
+            validateStock(variant, cartItem.getQuantity());
+            BigDecimal price = resolvePrice(variant);
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+
+            OrderItem orderItem = OrderItem.builder()
+                    .variant(variant)
+                    .quantity(cartItem.getQuantity())
+                    .unitPrice(price)
+                    .lineTotal(lineTotal)
+                    .build();
+
+            order.addItem(orderItem);
+            subtotal = subtotal.add(lineTotal);
+            decreaseStock(variant, cartItem.getQuantity());
+        }
+
+        order.setSubtotal(subtotal);
+        order.setTotal(subtotal.add(order.getShippingFee()).subtract(order.getDiscountAmount()));
+
+        Order saved = orderRepository.save(order);
+        cart.getItems().clear();
+        cartRepository.save(cart);
+        return orderMapper.toResponse(saved);
+    }
+
     public List<OrderResponse> getAllOrders() {
         return orderRepository.findAll().stream().map(orderMapper::toResponse).toList();
     }
@@ -116,7 +179,7 @@ public class OrderService {
     }
 
     public List<OrderResponse> getOrdersByCustomer(Integer customerId) {
-        return orderRepository.findByCustomerId(customerId).stream().map(orderMapper::toResponse).toList();
+        return orderRepository.findByCustomerIdOrderByOrderDateDesc(customerId).stream().map(orderMapper::toResponse).toList();
     }
 
     public List<OrderResponse> getOrdersByChannel(String channel) {
@@ -185,6 +248,9 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
         if (order.getStatus() == OrderStatus.HUY) throw new RuntimeException("Đơn hàng đã hủy trước đó");
+        if (order.getStatus() == OrderStatus.DANG_GIAO || order.getStatus() == OrderStatus.HOAN_TAT) {
+            throw new RuntimeException("Không thể hủy đơn khi đơn đang giao hoặc đã hoàn tất");
+        }
 
         for (OrderItem item : order.getItems()) {
             ProductVariant variant = item.getVariant();
@@ -210,6 +276,62 @@ public class OrderService {
         order.setSubtotal(subtotal);
         order.setTotal(subtotal.add(order.getShippingFee() == null ? BigDecimal.ZERO : order.getShippingFee())
                 .subtract(order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount()));
+    }
+
+    private CustomerAddress resolveCheckoutAddress(Integer customerId, Integer addressId) {
+        if (addressId != null) {
+            return customerAddressRepository.findByIdAndCustomerId(addressId, customerId)
+                    .orElseThrow(() -> new RuntimeException("Địa chỉ không thuộc khách hàng này"));
+        }
+        return customerAddressRepository.findFirstByCustomerIdAndIsDefaultTrueOrderByIdDesc(customerId)
+                .orElseGet(() -> customerAddressRepository.findByCustomerIdOrderByIdDesc(customerId).stream()
+                        .findFirst()
+                        .orElseThrow(() -> new RuntimeException("Khách hàng chưa có địa chỉ để checkout")));
+    }
+
+    private String buildFullAddress(CustomerAddress address) {
+        StringBuilder sb = new StringBuilder();
+        appendAddressPart(sb, address.getDetailAddress());
+        appendAddressPart(sb, address.getWard());
+        appendAddressPart(sb, address.getDistrict());
+        appendAddressPart(sb, address.getProvince());
+        return sb.toString();
+    }
+
+    private void appendAddressPart(StringBuilder sb, String value) {
+        if (value == null || value.isBlank()) return;
+        if (!sb.isEmpty()) sb.append(", ");
+        sb.append(value.trim());
+    }
+
+    private void validateStock(ProductVariant variant, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new RuntimeException("Số lượng phải lớn hơn 0");
+        }
+        if (variant.getStockQuantity() == null || variant.getStockQuantity() < quantity) {
+            throw new RuntimeException("Không đủ tồn kho cho SKU: " + variant.getSku());
+        }
+    }
+
+    private void decreaseStock(ProductVariant variant, int quantity) {
+        int newStock = variant.getStockQuantity() - quantity;
+        variant.setStockQuantity(newStock);
+        variant.setStockStatus(newStock > 0 ? VariantStockStatus.CON_HANG : VariantStockStatus.HET_HANG);
+        productVariantRepository.save(variant);
+    }
+
+    private BigDecimal resolvePrice(ProductVariant variant) {
+        return variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice();
+    }
+
+    private BigDecimal defaultMoney(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String generateOrderCode() {

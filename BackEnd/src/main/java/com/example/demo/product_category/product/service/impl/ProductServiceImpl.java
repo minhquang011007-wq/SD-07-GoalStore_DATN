@@ -43,15 +43,15 @@ public class ProductServiceImpl implements ProductService {
     public ProductDetailResponse create(ProductRequest request) {
         validateBaseSku(request.getBaseSku(), null);
         Product product = Product.builder()
-                .name(request.getName().trim())
-                .baseSku(request.getBaseSku().trim().toUpperCase())
-                .brand(request.getBrand())
-                .season(request.getSeason())
+                .name(normalizeRequired(request.getName(), "Tên sản phẩm"))
+                .baseSku(normalizeSku(request.getBaseSku()))
+                .brand(normalizeOptional(request.getBrand()))
+                .season(normalizeOptional(request.getSeason()))
                 .productType(request.getProductType())
                 .targetGender(request.getTargetGender())
-                .material(request.getMaterial())
-                .description(request.getDescription())
-                .releaseYear(request.getReleaseYear())
+                .material(normalizeOptional(request.getMaterial()))
+                .description(normalizeOptional(request.getDescription()))
+                .releaseYear(validateReleaseYear(request.getReleaseYear()))
                 .displayStatus(request.getDisplayStatus() == null ? ProductDisplayStatus.HIENTHI : request.getDisplayStatus())
                 .build();
         product.setCategories(resolveCategories(request.getCategoryIds()));
@@ -65,15 +65,15 @@ public class ProductServiceImpl implements ProductService {
     public ProductDetailResponse update(Integer id, ProductRequest request) {
         Product product = getEntity(id);
         validateBaseSku(request.getBaseSku(), id);
-        product.setName(request.getName().trim());
-        product.setBaseSku(request.getBaseSku().trim().toUpperCase());
-        product.setBrand(request.getBrand());
-        product.setSeason(request.getSeason());
+        product.setName(normalizeRequired(request.getName(), "Tên sản phẩm"));
+        product.setBaseSku(normalizeSku(request.getBaseSku()));
+        product.setBrand(normalizeOptional(request.getBrand()));
+        product.setSeason(normalizeOptional(request.getSeason()));
         product.setProductType(request.getProductType());
         product.setTargetGender(request.getTargetGender());
-        product.setMaterial(request.getMaterial());
-        product.setDescription(request.getDescription());
-        product.setReleaseYear(request.getReleaseYear());
+        product.setMaterial(normalizeOptional(request.getMaterial()));
+        product.setDescription(normalizeOptional(request.getDescription()));
+        product.setReleaseYear(validateReleaseYear(request.getReleaseYear()));
         product.setDisplayStatus(request.getDisplayStatus() == null ? ProductDisplayStatus.HIENTHI : request.getDisplayStatus());
         product.getCategories().clear();
         product.getCategories().addAll(resolveCategories(request.getCategoryIds()));
@@ -89,9 +89,9 @@ public class ProductServiceImpl implements ProductService {
         Product product = getEntity(id);
         if (request.getName() != null && !request.getName().isBlank()) product.setName(request.getName().trim());
         if (request.getDisplayStatus() != null) product.setDisplayStatus(request.getDisplayStatus());
-        if (request.getBrand() != null) product.setBrand(request.getBrand().trim());
-        if (request.getMaterial() != null) product.setMaterial(request.getMaterial().trim());
-        if (request.getSeason() != null) product.setSeason(request.getSeason().trim());
+        if (request.getBrand() != null) product.setBrand(normalizeOptional(request.getBrand()));
+        if (request.getMaterial() != null) product.setMaterial(normalizeOptional(request.getMaterial()));
+        if (request.getSeason() != null) product.setSeason(normalizeOptional(request.getSeason()));
         Product saved = productRepository.save(product);
         productHistoryService.log(saved, "QUICK_UPDATE", "Chỉnh sửa nhanh sản phẩm");
         return ProductMapper.toDetail(saved);
@@ -103,9 +103,9 @@ public class ProductServiceImpl implements ProductService {
         for (ProductBatchUpdateItemRequest item : request.getItems()) {
             Product product = getEntity(item.getId());
             if (item.getDisplayStatus() != null) product.setDisplayStatus(item.getDisplayStatus());
-            if (item.getBrand() != null) product.setBrand(item.getBrand().trim());
-            if (item.getSeason() != null) product.setSeason(item.getSeason().trim());
-            if (item.getMaterial() != null) product.setMaterial(item.getMaterial().trim());
+            if (item.getBrand() != null) product.setBrand(normalizeOptional(item.getBrand()));
+            if (item.getSeason() != null) product.setSeason(normalizeOptional(item.getSeason()));
+            if (item.getMaterial() != null) product.setMaterial(normalizeOptional(item.getMaterial()));
             Product saved = productRepository.save(product);
             productHistoryService.log(saved, "BATCH_UPDATE", "Cập nhật hàng loạt sản phẩm");
             responses.add(ProductMapper.toDetail(saved));
@@ -282,6 +282,37 @@ public class ProductServiceImpl implements ProductService {
             map.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
         }
         return map;
+    }
+
+
+    private String normalizeRequired(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new BadRequestException(fieldName + " không được để trống");
+        }
+        return value.trim();
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeSku(String baseSku) {
+        return normalizeRequired(baseSku, "SKU chuẩn").toUpperCase();
+    }
+
+    private Integer validateReleaseYear(Integer releaseYear) {
+        if (releaseYear == null) {
+            return null;
+        }
+        int currentYear = java.time.Year.now().getValue() + 1;
+        if (releaseYear < 2000 || releaseYear > currentYear) {
+            throw new BadRequestException("Năm phiên bản không hợp lệ");
+        }
+        return releaseYear;
     }
 
     private void validateBaseSku(String baseSku, Integer id) {
