@@ -13,20 +13,26 @@ import java.util.List;
 public class OrderMapper {
 
     public OrderResponse toResponse(Order order) {
-        List<OrderItemResponse> itemResponses = order.getItems()
-                .stream()
-                .map(this::toItemResponse)
-                .toList();
+        List<OrderItemResponse> itemResponses = order.getItems().stream().map(this::toItemResponse).toList();
 
         return OrderResponse.builder()
                 .id(order.getId())
+                .code(order.getCode())
                 .customerId(order.getCustomer() != null ? order.getCustomer().getId() : null)
                 .customerName(order.getCustomer() != null ? order.getCustomer().getTen() : null)
                 .staffId(order.getStaff() != null ? order.getStaff().getId() : null)
                 .staffUsername(order.getStaff() != null ? order.getStaff().getUsername() : null)
                 .status(order.getStatus() != null ? order.getStatus().name() : null)
                 .paymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null)
+                .paymentStatus(order.getPaymentStatus())
                 .channel(order.getChannel() != null ? order.getChannel().name() : null)
+                .receiverName(order.getReceiverName())
+                .receiverPhone(order.getReceiverPhone())
+                .shippingAddress(order.getShippingAddress())
+                .note(order.getNote())
+                .subtotal(order.getSubtotal())
+                .shippingFee(order.getShippingFee())
+                .discountAmount(order.getDiscountAmount())
                 .total(order.getTotal())
                 .orderDate(order.getOrderDate())
                 .items(itemResponses)
@@ -34,8 +40,9 @@ public class OrderMapper {
     }
 
     private OrderItemResponse toItemResponse(OrderItem item) {
-        BigDecimal lineTotal = item.getUnitPrice()
-                .multiply(BigDecimal.valueOf(item.getQuantity()));
+        BigDecimal lineTotal = item.getLineTotal() != null
+                ? item.getLineTotal()
+                : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
 
         return OrderItemResponse.builder()
                 .itemId(item.getId())

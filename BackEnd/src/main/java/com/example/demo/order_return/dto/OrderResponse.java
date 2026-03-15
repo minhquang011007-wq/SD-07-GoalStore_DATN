@@ -11,13 +11,22 @@ import java.util.List;
 @Builder
 public class OrderResponse {
     private Integer id;
+    private String code;
     private Integer customerId;
     private String customerName;
     private Integer staffId;
     private String staffUsername;
     private String status;
     private String paymentMethod;
+    private String paymentStatus;
     private String channel;
+    private String receiverName;
+    private String receiverPhone;
+    private String shippingAddress;
+    private String note;
+    private BigDecimal subtotal;
+    private BigDecimal shippingFee;
+    private BigDecimal discountAmount;
     private BigDecimal total;
     private LocalDateTime orderDate;
     private List<OrderItemResponse> items;
