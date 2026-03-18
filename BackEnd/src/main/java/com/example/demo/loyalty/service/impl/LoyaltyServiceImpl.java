@@ -54,7 +54,7 @@ public class LoyaltyServiceImpl implements LoyaltyService {
         history.setPoints(request.getPoints());
         history.setType("ADD");
         history.setNote(request.getNote());
-
+        history.setCreatedAt(LocalDateTime.now());
         loyaltyRepository.save(history);
 
     }
@@ -75,7 +75,7 @@ public class LoyaltyServiceImpl implements LoyaltyService {
         history.setPoints(request.getPoints());
         history.setType("SUBTRACT");
         history.setNote(request.getNote());
-
+        history.setCreatedAt(LocalDateTime.now());
         loyaltyRepository.save(history);
 
     }
