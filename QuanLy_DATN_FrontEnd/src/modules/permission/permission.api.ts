@@ -12,11 +12,6 @@ export const permissionApi = {
     return res.data
   },
 
-  getByModule: async (module: string) => {
-    const res = await api.get<PermissionResponse[]>(`/api/permissions/module/${module}`)
-    return res.data
-  },
-
   getByRole: async (role: string) => {
     const res = await api.get<PermissionResponse[]>(`/api/permissions/role/${role}`)
     return res.data
