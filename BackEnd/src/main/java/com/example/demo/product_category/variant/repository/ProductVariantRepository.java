@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, Integer> {
     boolean existsBySkuIgnoreCase(String sku);
     boolean existsBySkuIgnoreCaseAndIdNot(String sku, Integer id);
+    boolean existsByProductIdAndSizeIgnoreCaseAndColorIgnoreCase(Integer productId, String size, String color);
+    boolean existsByProductIdAndSizeIgnoreCaseAndColorIgnoreCaseAndIdNot(Integer productId, String size, String color, Integer id);
     List<ProductVariant> findByProductIdOrderByIdAsc(Integer productId);
     Optional<ProductVariant> findByIdAndProductId(Integer id, Integer productId);
     List<ProductVariant> findByProductIdAndStockStatusOrderByIdAsc(Integer productId, VariantStockStatus stockStatus);

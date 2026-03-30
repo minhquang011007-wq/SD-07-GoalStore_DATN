@@ -55,29 +55,34 @@ public class ProductImageServiceImpl implements ProductImageService {
     public ProductImageResponse update(Integer imageId, UpdateImageRequest request) {
         ProductImage image = getEntity(imageId);
         if (request.getAvatar() != null && request.getAvatar()) {
-            List<ProductImage> images = imageRepository.findByProductIdOrderBySortOrderAscIdAsc(image.getProduct().getId());
-            images.forEach(i -> {
-                if (!i.getId().equals(imageId)) {
-                    i.setAvatar(false);
-                    imageRepository.save(i);
-                }
-            });
-            image.setAvatar(true);
+            setAsAvatar(image);
         } else if (request.getAvatar() != null) {
             image.setAvatar(false);
+            image = imageRepository.save(image);
+            ensureAvatarExists(image.getProduct().getId());
+            return ProductMapper.toImageResponse(image);
         }
 
         if (request.getSortOrder() != null) {
             image.setSortOrder(request.getSortOrder());
         }
-        return ProductMapper.toImageResponse(imageRepository.save(image));
+        ProductImage saved = imageRepository.save(image);
+        ensureAvatarExists(saved.getProduct().getId());
+        return ProductMapper.toImageResponse(saved);
     }
 
     @Override
     public void delete(Integer imageId) {
         ProductImage image = getEntity(imageId);
+        Integer productId = image.getProduct().getId();
+        boolean wasAvatar = Boolean.TRUE.equals(image.getAvatar());
+
         fileStorageService.deleteByRelativeUrl(image.getImageUrl());
         imageRepository.delete(image);
+
+        if (wasAvatar) {
+            ensureAvatarExists(productId);
+        }
     }
 
     @Override
@@ -86,6 +91,30 @@ public class ProductImageServiceImpl implements ProductImageService {
         return imageRepository.findByProductIdOrderBySortOrderAscIdAsc(productId).stream()
                 .map(ProductMapper::toImageResponse)
                 .toList();
+    }
+
+    private void setAsAvatar(ProductImage targetImage) {
+        List<ProductImage> images = imageRepository.findByProductIdOrderBySortOrderAscIdAsc(targetImage.getProduct().getId());
+        for (ProductImage image : images) {
+            image.setAvatar(image.getId().equals(targetImage.getId()));
+            imageRepository.save(image);
+        }
+    }
+
+    private void ensureAvatarExists(Integer productId) {
+        List<ProductImage> images = imageRepository.findByProductIdOrderBySortOrderAscIdAsc(productId);
+        if (images.isEmpty()) {
+            return;
+        }
+
+        boolean hasAvatar = images.stream().anyMatch(i -> Boolean.TRUE.equals(i.getAvatar()));
+        if (hasAvatar) {
+            return;
+        }
+
+        ProductImage fallback = images.get(0);
+        fallback.setAvatar(true);
+        imageRepository.save(fallback);
     }
 
     private ProductImage getEntity(Integer imageId) {

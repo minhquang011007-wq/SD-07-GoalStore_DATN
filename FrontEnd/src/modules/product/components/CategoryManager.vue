@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Pencil, Plus, Trash2, Upload } from "lucide-vue-next"
+import { Pencil, Plus, Search, Trash2, Upload } from "lucide-vue-next"
+import { ref, watch } from "vue"
 import type { CategoryResponse } from "@/modules/product/types"
 import { resolveProductImageUrl } from "@/modules/product/utils/image"
 
-defineProps<{
+const props = defineProps<{
   loading?: boolean
   items: CategoryResponse[]
+  keyword?: string
 }>()
 
 const emit = defineEmits<{
@@ -14,7 +16,13 @@ const emit = defineEmits<{
   (e: "delete", id: number): void
   (e: "upload-image", payload: { id: number; event: Event }): void
   (e: "refresh"): void
+  (e: "search", keyword: string): void
 }>()
+
+const localKeyword = ref(props.keyword || "")
+watch(() => props.keyword, (value) => {
+  localKeyword.value = value || ""
+})
 </script>
 
 <template>
@@ -23,6 +31,17 @@ const emit = defineEmits<{
       <button @click="emit('create')" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white">
         <span class="inline-flex items-center gap-2"><Plus :size="16" /> Thêm category</span>
       </button>
+
+      <label class="relative min-w-[260px] flex-1">
+        <Search class="absolute left-3 top-3 text-slate-400" :size="16" />
+        <input
+          v-model="localKeyword"
+          @input="emit('search', localKeyword)"
+          class="w-full rounded-xl border px-9 py-2.5 text-sm"
+          placeholder="Tìm category theo tên hoặc mô tả..."
+        />
+      </label>
+
       <button @click="emit('refresh')" class="rounded-xl border px-4 py-2 text-sm font-medium">Làm mới danh mục</button>
     </div>
 

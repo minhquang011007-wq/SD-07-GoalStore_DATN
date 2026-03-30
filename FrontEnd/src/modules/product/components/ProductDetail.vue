@@ -10,7 +10,13 @@ import type {
   ProductHistoryResponse,
   ProductImageResponse,
   ProductVariantResponse,
+  VariantStockStatus,
 } from "@/modules/product/types"
+
+interface Option<T = string> {
+  label: string
+  value: T
+}
 
 const props = defineProps<{
   selectedProduct: ProductDetailResponse | null
@@ -21,6 +27,11 @@ const props = defineProps<{
   formatCurrency: (value?: number | null) => string
   formatDate: (value?: string | null) => string
   statusLabel: (value?: string | null) => string
+  variantFilters: {
+    keyword: string
+    stockStatus: VariantStockStatus | ""
+  }
+  stockStatusOptions: Option<VariantStockStatus>[]
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +43,8 @@ const emit = defineEmits<{
   (e: "create-variant"): void
   (e: "edit-variant", variant: ProductVariantResponse): void
   (e: "remove-variant", id: number): void
+  (e: "variant-filter-change"): void
+  (e: "variant-filter-reset"): void
   (e: "upload-images", event: Event): void
   (e: "set-avatar", image: ProductImageResponse): void
   (e: "remove-image", id: number): void
@@ -88,9 +101,13 @@ const emit = defineEmits<{
         :variants="props.selectedProduct.variants || []"
         :format-currency="props.formatCurrency"
         :status-label="props.statusLabel"
+        :filters="props.variantFilters"
+        :stock-status-options="props.stockStatusOptions"
         @create="emit('create-variant')"
         @edit="emit('edit-variant', $event)"
         @remove="emit('remove-variant', $event)"
+        @filter-change="emit('variant-filter-change')"
+        @filter-reset="emit('variant-filter-reset')"
       />
 
       <ImageManager

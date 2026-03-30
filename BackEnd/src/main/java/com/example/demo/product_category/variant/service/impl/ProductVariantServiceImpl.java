@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public class ProductVariantServiceImpl implements ProductVariantService {
                 .filter(p -> Boolean.FALSE.equals(p.getDeleted()))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy product id = " + productId));
 
-        validateSku(request.getSku(), null);
+        validateBusiness(productId, request, null);
 
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -51,7 +52,9 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     @Override
     public ProductVariantResponse update(Integer id, ProductVariantRequest request) {
         ProductVariant variant = getEntity(id);
-        validateSku(request.getSku(), id);
+        Integer productId = variant.getProduct().getId();
+
+        validateBusiness(productId, request, id);
 
         variant.setSku(request.getSku().trim().toUpperCase());
         variant.setSize(request.getSize().trim().toUpperCase());
@@ -103,6 +106,13 @@ public class ProductVariantServiceImpl implements ProductVariantService {
                 .toList();
     }
 
+    private void validateBusiness(Integer productId, ProductVariantRequest request, Integer id) {
+        validateSku(request.getSku(), id);
+        validateSizeColor(productId, request.getSize(), request.getColor(), id);
+        validatePrice(request.getPrice(), request.getSalePrice());
+        validateStock(request.getStockQuantity());
+    }
+
     private void validateSku(String sku, Integer id) {
         if (sku == null || sku.isBlank()) {
             throw new BadRequestException("SKU variant không được để trống");
@@ -112,6 +122,52 @@ public class ProductVariantServiceImpl implements ProductVariantService {
                 : variantRepository.existsBySkuIgnoreCaseAndIdNot(sku.trim(), id);
         if (exists) {
             throw new BadRequestException("SKU variant đã tồn tại");
+        }
+    }
+
+    private void validateSizeColor(Integer productId, String size, String color, Integer id) {
+        if (size == null || size.isBlank()) {
+            throw new BadRequestException("Size không được để trống");
+        }
+        if (color == null || color.isBlank()) {
+            throw new BadRequestException("Màu không được để trống");
+        }
+
+        String normalizedSize = size.trim();
+        String normalizedColor = color.trim();
+
+        boolean exists = id == null
+                ? variantRepository.existsByProductIdAndSizeIgnoreCaseAndColorIgnoreCase(productId, normalizedSize, normalizedColor)
+                : variantRepository.existsByProductIdAndSizeIgnoreCaseAndColorIgnoreCaseAndIdNot(productId, normalizedSize, normalizedColor, id);
+
+        if (exists) {
+            throw new BadRequestException("Variant bị trùng size và màu trong cùng sản phẩm");
+        }
+    }
+
+    private void validatePrice(BigDecimal price, BigDecimal salePrice) {
+        if (price == null) {
+            throw new BadRequestException("Giá bán không được để trống");
+        }
+        if (price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Giá bán phải lớn hơn hoặc bằng 0");
+        }
+        if (salePrice != null) {
+            if (salePrice.compareTo(BigDecimal.ZERO) < 0) {
+                throw new BadRequestException("Giá khuyến mãi phải lớn hơn hoặc bằng 0");
+            }
+            if (salePrice.compareTo(price) > 0) {
+                throw new BadRequestException("Giá khuyến mãi không được lớn hơn giá bán");
+            }
+        }
+    }
+
+    private void validateStock(Integer stockQuantity) {
+        if (stockQuantity == null) {
+            throw new BadRequestException("Tồn kho không được để trống");
+        }
+        if (stockQuantity < 0) {
+            throw new BadRequestException("Tồn kho phải lớn hơn hoặc bằng 0");
         }
     }
 

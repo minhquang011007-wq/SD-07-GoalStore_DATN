@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { Heart, Search, ShoppingBag, User } from "lucide-vue-next"
+import { Heart, LogOut, Search, ShoppingBag, User } from "lucide-vue-next"
 import { computed } from "vue"
-import { RouterLink, useRoute } from "vue-router"
+import { RouterLink, useRoute, useRouter } from "vue-router"
+import { clearSession, getDisplayName, getRole, isLoggedIn } from "@/shared/lib/auth"
 
 const route = useRoute()
+const router = useRouter()
 const cartCount = computed(() => 0)
 const totalText = computed(() => "$0.00")
+const loggedIn = computed(() => isLoggedIn())
+const role = computed(() => getRole())
+const displayName = computed(() => getDisplayName())
 
 const menus = [
   { label: "Home", to: "/" },
@@ -14,6 +19,11 @@ const menus = [
   { label: "Blog", to: "/shop" },
   { label: "Contacts", to: "/shop" },
 ]
+
+function handleLogout() {
+  clearSession()
+  router.push('/')
+}
 </script>
 
 <template>
@@ -22,7 +32,14 @@ const menus = [
       <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 text-xs md:text-sm">
         <p>Free shipping, 30-day return or refund guarantee.</p>
         <div class="hidden items-center gap-6 md:flex">
-          <RouterLink to="/login" class="uppercase tracking-[0.2em] hover:text-neutral-300">Sign in</RouterLink>
+          <template v-if="loggedIn">
+            <span class="uppercase tracking-[0.2em] text-neutral-200">{{ displayName }}</span>
+            <RouterLink v-if="role === 'ADMIN' || role === 'SALES' || role === 'INVENTORY'" to="/login" class="uppercase tracking-[0.2em] hover:text-neutral-300">Back office</RouterLink>
+            <button class="uppercase tracking-[0.2em] hover:text-neutral-300" @click="handleLogout">Sign out</button>
+          </template>
+          <template v-else>
+            <RouterLink to="/login" class="uppercase tracking-[0.2em] hover:text-neutral-300">Sign in</RouterLink>
+          </template>
           <a href="#" class="uppercase tracking-[0.2em] hover:text-neutral-300">FAQs</a>
           <button class="uppercase tracking-[0.2em] hover:text-neutral-300">USD</button>
         </div>
@@ -49,7 +66,14 @@ const menus = [
       <div class="flex items-center gap-4 md:gap-5">
         <button class="text-neutral-800 transition hover:text-red-500"><Search class="h-5 w-5" /></button>
         <button class="text-neutral-800 transition hover:text-red-500"><Heart class="h-5 w-5" /></button>
-        <RouterLink to="/login" class="text-neutral-800 transition hover:text-red-500"><User class="h-5 w-5" /></RouterLink>
+        <template v-if="loggedIn">
+          <div class="hidden text-right md:block">
+            <p class="text-sm font-semibold text-neutral-900">{{ displayName }}</p>
+            <p class="text-[11px] uppercase tracking-[0.18em] text-neutral-400">{{ role || 'Customer' }}</p>
+          </div>
+          <button class="text-neutral-800 transition hover:text-red-500" @click="handleLogout"><LogOut class="h-5 w-5" /></button>
+        </template>
+        <RouterLink v-else to="/login" class="text-neutral-800 transition hover:text-red-500"><User class="h-5 w-5" /></RouterLink>
         <button class="flex items-center gap-2 text-neutral-900 transition hover:text-red-500">
           <ShoppingBag class="h-5 w-5" />
           <span class="text-sm">{{ totalText }}</span>

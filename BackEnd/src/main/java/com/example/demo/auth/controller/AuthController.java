@@ -19,7 +19,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-
 @Tag(name = "Authentication", description = "Login & Token Management")
 public class AuthController {
     private final URepository userRepository;
@@ -36,19 +35,24 @@ public class AuthController {
         String ip = httpRequest.getRemoteAddr();
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        UserEntity user = userRepository.findByUsername(req.getUsername()).orElse(null);
+        UserEntity user = userRepository.findByEmail(req.getEmail()).orElse(null);
+
         if (user == null) {
-            auditLogService.recordLoginAttempt(req.getUsername(), null, false, ip, userAgent);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong username or password");
+            auditLogService.recordLoginAttempt(req.getEmail(), null, false, ip, userAgent);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong email or password");
         }
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            auditLogService.recordLoginAttempt(user.getUsername(), user.getId(), false, ip, userAgent);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong username or password");
+            auditLogService.recordLoginAttempt(user.getEmail(), user.getId(), false, ip, userAgent);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong email or password");
         }
 
-        auditLogService.recordLoginAttempt(user.getUsername(), user.getId(), true, ip, userAgent);
-        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole());
-        return ResponseEntity.ok(new LoginResponse(token, user.getUsername(), user.getRole()));
+        auditLogService.recordLoginAttempt(user.getEmail(), user.getId(), true, ip, userAgent);
+
+        String token = jwtTokenProvider.generateToken(user.getEmail(), user.getRole());
+
+        return ResponseEntity.ok(
+                new LoginResponse(token, user.getEmail(), user.getRole())
+        );
     }
 }

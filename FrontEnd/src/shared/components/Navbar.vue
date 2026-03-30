@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Menu, User, LogOut, ChevronDown } from 'lucide-vue-next'
+import { clearSession, getDisplayName } from '@/shared/lib/auth'
 
 defineProps<{
   onToggleSidebar: () => void
@@ -11,7 +12,7 @@ const router = useRouter()
 const searchQuery = ref('')
 const accountDropdownOpen = ref(false)
 
-const username = computed(() => localStorage.getItem('username') || 'User')
+const username = computed(() => getDisplayName())
 const role = computed(() => localStorage.getItem('role') || 'Unknown')
 
 const handleSearch = (e: Event) => {
@@ -28,9 +29,7 @@ const closeAccountDropdown = () => {
 }
 
 const handleLogout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('role')
-  localStorage.removeItem('username')
+  clearSession()
   closeAccountDropdown()
   router.replace('/login')
 }
