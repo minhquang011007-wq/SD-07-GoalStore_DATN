@@ -90,10 +90,11 @@ function filterProducts(products: PublicProductSummary[], params: PublicProductS
     const matchesSingleCategory = !category || (item.categoryNames || []).some((value) => value.toLowerCase() === category)
     const matchesMultiCategory = !selectedCategoryNames.size || (item.categoryNames || []).some((value) => selectedCategoryNames.has(value.toLowerCase()))
     const matchesStock = !inStock || toNumber(item.totalStock) > 0
+    const matchesSale = !params.saleOnly || (toNumber(item.salePrice) > 0 && toNumber(item.salePrice) < toNumber(item.price || item.minPrice))
     const matchesMin = params.minPrice === undefined || finalPrice >= params.minPrice
     const matchesMax = params.maxPrice === undefined || finalPrice <= params.maxPrice
 
-    return matchesKeyword && matchesBrand && matchesSingleCategory && matchesMultiCategory && matchesStock && matchesMin && matchesMax
+    return matchesKeyword && matchesBrand && matchesSingleCategory && matchesMultiCategory && matchesStock && matchesSale && matchesMin && matchesMax
   })
 }
 
@@ -214,6 +215,7 @@ export async function getPublicProducts(params: PublicProductSearchParams = {}) 
   if (params.minPrice !== undefined) query.set('minPrice', String(params.minPrice))
   if (params.maxPrice !== undefined) query.set('maxPrice', String(params.maxPrice))
   if (params.inStock !== undefined) query.set('inStock', String(params.inStock))
+  if (params.saleOnly !== undefined) query.set('saleOnly', String(params.saleOnly))
   if (params.sort) query.set('sort', params.sort)
 
   try {

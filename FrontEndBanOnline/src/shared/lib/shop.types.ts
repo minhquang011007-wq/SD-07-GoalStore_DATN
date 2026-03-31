@@ -115,5 +115,6 @@ export type PublicProductSearchParams = {
   minPrice?: number
   maxPrice?: number
   inStock?: boolean
+  saleOnly?: boolean
   sort?: 'newest' | 'price-asc' | 'price-desc' | 'price_asc' | 'price_desc' | 'best_selling'
 }
