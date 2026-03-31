@@ -1,0 +1,26 @@
+@import url('/legacy/css/bootstrap.min.css');
+@import url('/legacy/css/font-awesome.min.css');
+@import url('/legacy/css/style.css');
+
+html, body, #app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.legacy-page a {
+  text-decoration: none;
+}
+
+.gs-logo {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111111;
+  letter-spacing: 1px;
+}
+
+.gs-logo:hover {
+  color: #e53637;
+}

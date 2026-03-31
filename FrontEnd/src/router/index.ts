@@ -1,39 +1,44 @@
 import { createRouter, createWebHistory } from "vue-router"
 import MainLayout from "@/shared/layouts/MainLayout.vue"
-import StorefrontLayout from "@/shared/layouts/StorefrontLayout.vue"
 import { getRole } from "@/shared/lib/auth"
+import { hydrateSessionFromUrl } from "@/shared/lib/cross-app-auth"
 
-type Role = "ADMIN" | "SALES" | "INVENTORY" | "CUSTOMER"
+type StaffRole = "ADMIN" | "SALES" | "INVENTORY"
+type Role = StaffRole | "CUSTOMER"
 
-const HOME_BY_ROLE: Record<Role, string> = {
+const STOREFRONT_URL = (import.meta.env.VITE_STOREFRONT_URL as string | undefined) || "http://localhost:5173"
+
+const HOME_BY_ROLE: Record<StaffRole, string> = {
   ADMIN: "/admin",
   SALES: "/sales",
   INVENTORY: "/inventory",
-  CUSTOMER: "/",
+}
+
+function redirectByRole(role: Role) {
+  if (role === "CUSTOMER") return "/login"
+  return HOME_BY_ROLE[role as StaffRole] || "/admin"
 }
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
-      path: "/",
-      component: StorefrontLayout,
-      meta: { public: true },
-      children: [
-        { path: "", component: () => import("@/modules/storefront/views/StoreHomeView.vue"), meta: { public: true } },
-        { path: "shop", component: () => import("@/modules/storefront/views/StoreShopView.vue"), meta: { public: true } },
-      ],
-    },
-    {
       path: "/login",
       component: () => import("@/modules/system/auth/views/LoginView.vue"),
-      meta: { public: true, shared: true },
+      meta: { public: true },
     },
     {
       path: "/",
       component: MainLayout,
       children: [
-        { path: "", redirect: "/admin" },
+        {
+          path: "",
+          redirect: () => {
+            const role = getRole() as Role | ""
+            if (!role || role === "CUSTOMER") return "/login"
+            return HOME_BY_ROLE[role as StaffRole] || "/admin"
+          },
+        },
         {
           path: "admin",
           component: () => import("@/modules/system/dashboard/views/AdminHomeView.vue"),
@@ -105,21 +110,32 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
+  hydrateSessionFromUrl()
+
   const token = localStorage.getItem("token")
   const isPublic = Boolean(to.meta?.public)
   const role = getRole() as Role | ""
 
-  if (!token && !isPublic) return next("/login")
-
-  if (token && to.path === "/login") {
-    if (role && HOME_BY_ROLE[role]) return next(HOME_BY_ROLE[role])
-    return next("/")
+  // Chưa đăng nhập
+  if (!token) {
+    if (isPublic) return next()
+    return next("/login")
   }
 
-  const allowedRoles = to.meta?.roles as Role[] | undefined
-  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
-    if (role && HOME_BY_ROLE[role]) return next(HOME_BY_ROLE[role])
-    return next("/login")
+  // Đã đăng nhập mà vào login
+  if (to.path === "/login") {
+    if (role && role !== "CUSTOMER") {
+      return next(HOME_BY_ROLE[role as StaffRole] || "/admin")
+    }
+    return next()
+  }
+
+  // FE quản lý chỉ cho staff vào
+  const allowedRoles = to.meta?.roles as StaffRole[] | undefined
+  if (allowedRoles) {
+    if (!role || role === "CUSTOMER" || !allowedRoles.includes(role as StaffRole)) {
+      return next("/login")
+    }
   }
 
   next()

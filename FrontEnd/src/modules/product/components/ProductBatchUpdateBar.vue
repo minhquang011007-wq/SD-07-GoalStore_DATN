@@ -18,7 +18,7 @@ const emit = defineEmits<{
   <div v-if="props.selectedCount > 0" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
     <div class="space-y-4">
       <div>
-        <div class="text-sm font-semibold text-slate-900">Batch update sản phẩm</div>
+        <div class="text-sm font-semibold text-slate-900">Cập nhật hàng loạt sản phẩm</div>
         <div class="text-xs text-slate-500">
           Đã chọn {{ props.selectedCount }} sản phẩm. Chỉ nhập trường nào bạn muốn cập nhật hàng loạt.
         </div>
@@ -28,17 +28,17 @@ const emit = defineEmits<{
         <input
           v-model="props.form.brand"
           class="min-w-0 rounded-xl border bg-white px-3 py-2 text-sm"
-          placeholder="Brand"
+          placeholder="Thương hiệu"
         />
         <input
           v-model="props.form.season"
           class="min-w-0 rounded-xl border bg-white px-3 py-2 text-sm"
-          placeholder="Season"
+          placeholder="Mùa giải"
         />
         <input
           v-model="props.form.material"
           class="min-w-0 rounded-xl border bg-white px-3 py-2 text-sm"
-          placeholder="Material"
+          placeholder="Chất liệu"
         />
         <select v-model="props.form.displayStatus" class="min-w-0 rounded-xl border bg-white px-3 py-2 text-sm">
           <option :value="undefined">Trạng thái hiển thị</option>

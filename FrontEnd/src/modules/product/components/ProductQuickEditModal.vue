@@ -21,7 +21,7 @@ const emit = defineEmits<{
     <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h3 class="text-lg font-semibold text-slate-900">Quick update sản phẩm</h3>
+          <h3 class="text-lg font-semibold text-slate-900">Cập nhật nhanh sản phẩm</h3>
           <p class="text-sm text-slate-500">{{ props.productName || "Chỉnh sửa nhanh thông tin cơ bản" }}</p>
         </div>
         <button @click="emit('close')" class="rounded-lg border p-2 hover:bg-slate-50"><X :size="16" /></button>
@@ -34,18 +34,18 @@ const emit = defineEmits<{
         </label>
 
         <label class="space-y-2">
-          <span class="text-sm font-medium text-slate-700">Brand</span>
-          <input v-model="props.form.brand" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Brand" />
+          <span class="text-sm font-medium text-slate-700">Thương hiệu</span>
+          <input v-model="props.form.brand" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Thương hiệu" />
         </label>
 
         <label class="space-y-2">
-          <span class="text-sm font-medium text-slate-700">Season</span>
-          <input v-model="props.form.season" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Season" />
+          <span class="text-sm font-medium text-slate-700">Mùa giải</span>
+          <input v-model="props.form.season" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Mùa giải" />
         </label>
 
         <label class="space-y-2">
-          <span class="text-sm font-medium text-slate-700">Material</span>
-          <input v-model="props.form.material" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Material" />
+          <span class="text-sm font-medium text-slate-700">Chất liệu</span>
+          <input v-model="props.form.material" class="w-full rounded-xl border px-3 py-2.5 text-sm" placeholder="Chất liệu" />
         </label>
 
         <label class="space-y-2">

@@ -5,11 +5,11 @@ export type AuthSession = {
   role: AppRole
   username?: string
   email?: string
-  customerId?: number
   displayName?: string
+  customerId?: number | string
 }
 
-const AUTH_KEYS = ["token", "role", "username", "email", "customerId", "displayName"] as const
+const AUTH_KEYS = ["token", "role", "username", "email", "displayName", "customerId"] as const
 
 export function saveSession(session: AuthSession) {
   localStorage.setItem("token", session.token)
@@ -21,11 +21,14 @@ export function saveSession(session: AuthSession) {
   if (session.email) localStorage.setItem("email", session.email)
   else localStorage.removeItem("email")
 
-  if (session.customerId !== undefined) localStorage.setItem("customerId", String(session.customerId))
-  else localStorage.removeItem("customerId")
-
   if (session.displayName) localStorage.setItem("displayName", session.displayName)
   else localStorage.removeItem("displayName")
+
+  if (session.customerId !== undefined && session.customerId !== null) {
+    localStorage.setItem("customerId", String(session.customerId))
+  } else {
+    localStorage.removeItem("customerId")
+  }
 }
 
 export function clearSession() {
@@ -41,5 +44,10 @@ export function isLoggedIn() {
 }
 
 export function getDisplayName() {
-  return localStorage.getItem("displayName") || localStorage.getItem("username") || localStorage.getItem("email") || "Tài khoản"
+  return (
+    localStorage.getItem("displayName") ||
+    localStorage.getItem("username") ||
+    localStorage.getItem("email") ||
+    "Tài khoản"
+  )
 }

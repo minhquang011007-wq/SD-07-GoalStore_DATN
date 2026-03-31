@@ -30,14 +30,14 @@ const emit = defineEmits<{
 <template>
   <div>
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h4 class="font-semibold text-slate-900">Variants</h4>
-      <button @click="emit('create')" class="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Thêm variant</button>
+      <h4 class="font-semibold text-slate-900">Biến thể</h4>
+      <button @click="emit('create')" class="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Thêm biến thể</button>
     </div>
 
     <div class="mb-3 grid gap-3 md:grid-cols-[1fr_220px_auto_auto]">
       <label class="relative">
         <Search class="absolute left-3 top-3 text-slate-400" :size="16" />
-        <input v-model="props.filters.keyword" @input="emit('filter-change')" class="w-full rounded-xl border px-9 py-2.5 text-sm" placeholder="Tìm SKU / size / màu..." />
+        <input v-model="props.filters.keyword" @input="emit('filter-change')" class="w-full rounded-xl border px-9 py-2.5 text-sm" placeholder="Tìm SKU / kích thước / màu..." />
       </label>
       <select v-model="props.filters.stockStatus" @change="emit('filter-change')" class="rounded-xl border px-3 py-2.5 text-sm">
         <option value="">Tất cả trạng thái tồn</option>
@@ -53,7 +53,7 @@ const emit = defineEmits<{
           <div>
             <div class="font-medium">{{ variant.sku }}</div>
             <div class="text-slate-500">{{ variant.size }} • {{ variant.color }}</div>
-            <div class="mt-1 text-slate-500">{{ props.formatCurrency(variant.salePrice || variant.price) }} • {{ variant.stockQuantity }} • {{ props.statusLabel(variant.stockStatus) }}</div>
+            <div class="mt-1 text-slate-500">{{ props.formatCurrency(variant.salePrice || variant.price) }} • Tồn: {{ variant.stockQuantity }} • {{ props.statusLabel(variant.stockStatus) }}</div>
           </div>
           <div class="flex gap-2">
             <button @click="emit('edit', variant)" class="rounded-lg border p-2 hover:bg-slate-50"><Pencil :size="14" /></button>
@@ -61,7 +61,7 @@ const emit = defineEmits<{
           </div>
         </div>
       </div>
-      <div v-if="props.variants.length === 0" class="rounded-xl border p-3 text-sm text-slate-500">Chưa có variant.</div>
+      <div v-if="props.variants.length === 0" class="rounded-xl border p-3 text-sm text-slate-500">Chưa có biến thể.</div>
     </div>
   </div>
 </template>

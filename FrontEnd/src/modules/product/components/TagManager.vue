@@ -23,13 +23,13 @@ const emit = defineEmits<{
       >
         <span class="inline-flex items-center gap-2">
           <Plus :size="16" />
-          Thêm tag
+          Thêm thẻ
         </span>
       </button>
     </div>
 
     <div v-if="loading" class="mt-4 rounded-2xl border p-10 text-center text-sm text-slate-500">
-      Đang tải tags...
+      Đang tải thẻ...
     </div>
 
     <div v-else class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -78,7 +78,7 @@ const emit = defineEmits<{
         v-if="items.length === 0"
         class="rounded-2xl border p-10 text-center text-sm text-slate-500"
       >
-        Chưa có tag.
+        Chưa có thẻ.
       </div>
     </div>
   </div>

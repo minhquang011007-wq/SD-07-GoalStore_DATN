@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import { Funnel, Plus, Search, SlidersHorizontal } from "lucide-vue-next"
+import { Filter, Plus, Search, SlidersHorizontal } from "lucide-vue-next"
 import type {
   CategoryResponse,
   ProductDisplayStatus,
@@ -81,7 +81,7 @@ const activeFilterCount = computed(() => {
       <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <Funnel :size="16" />
+            <Filter :size="16" />
             Bộ lọc sản phẩm
           </div>
           <p class="mt-1 text-xs text-slate-500">
@@ -248,7 +248,7 @@ const activeFilterCount = computed(() => {
           </label>
 
           <label class="space-y-2">
-            <span class="text-xs font-medium text-slate-500">Lọc theo tag</span>
+            <span class="text-xs font-medium text-slate-500">Lọc theo thẻ</span>
             <select
               v-model="props.filters.tagIds"
               multiple

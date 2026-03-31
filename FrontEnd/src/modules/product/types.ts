@@ -93,6 +93,7 @@ export interface ProductSummaryResponse {
   minPrice?: number | null
   maxPrice?: number | null
   totalStock?: number | null
+  stockQuantity?: number | null
   stockStatus?: VariantStockStatus | null
   soldQuantity?: number | null
   createdAt?: string | null

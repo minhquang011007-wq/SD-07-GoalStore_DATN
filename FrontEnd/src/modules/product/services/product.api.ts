@@ -110,17 +110,7 @@ export async function fetchProductDetail(id: number) {
   return data
 }
 
-export async function fetchTopSellingProducts() {
-  const { data } = await api.get<ProductSummaryResponse[]>("/api/products/top-selling")
-  return data
-}
 
-export async function fetchNewestProducts(limit = 10) {
-  const { data } = await api.get<ProductSummaryResponse[]>("/api/products/newest", {
-    params: { limit },
-  })
-  return data
-}
 
 export async function fetchProductHistory(productId: number) {
   const { data } = await api.get<ProductHistoryResponse[]>(`/api/products/${productId}/history`)
@@ -151,9 +141,6 @@ export async function deleteProduct(id: number) {
   await api.delete(`/api/products/${id}`)
 }
 
-export async function hardDeleteProduct(id: number) {
-  await api.delete(`/api/products/${id}/hard`)
-}
 
 export async function hideProductIfOutOfStock(id: number) {
   const { data } = await api.patch<ProductDetailResponse>(`/api/products/${id}/hide-if-out-of-stock`)

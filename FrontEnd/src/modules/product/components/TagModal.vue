@@ -20,7 +20,7 @@ const emit = defineEmits<{
     <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold">
-          {{ editingTagId ? "Sửa tag" : "Thêm tag" }}
+          {{ editingTagId ? "Sửa thẻ" : "Thêm thẻ" }}
         </h3>
         <button @click="emit('close')" class="rounded-lg border p-2">
           <X :size="16" />
@@ -29,7 +29,7 @@ const emit = defineEmits<{
 
       <div class="mt-4 grid gap-4">
         <label class="space-y-2">
-          <span class="text-sm">Tên tag</span>
+          <span class="text-sm">Tên thẻ</span>
           <input
             v-model="form.name"
             class="w-full rounded-xl border px-3 py-2"
@@ -55,7 +55,7 @@ const emit = defineEmits<{
           :disabled="saving"
           class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {{ editingTagId ? "Lưu thay đổi" : "Tạo tag" }}
+          {{ editingTagId ? "Lưu thay đổi" : "Tạo thẻ" }}
         </button>
       </div>
     </div>

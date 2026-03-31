@@ -106,7 +106,7 @@ function stockBadgeClass(value?: string | null) {
                     v-else
                     class="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-[11px] text-slate-400"
                   >
-                    No image
+                    Chưa có ảnh
                   </div>
 
                   <div class="min-w-0">
@@ -204,7 +204,7 @@ function stockBadgeClass(value?: string | null) {
                     class="rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                     title="Ẩn nếu hết hàng"
                   >
-                    Ẩn OOS
+                    Ẩn hết hàng
                   </button>
 
                   <button

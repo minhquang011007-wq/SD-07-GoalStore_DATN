@@ -12,7 +12,6 @@ import TagModal from "@/modules/product/components/TagModal.vue"
 import AttributeModal from "@/modules/product/components/AttributeModal.vue"
 import ProductQuickEditModal from "@/modules/product/components/ProductQuickEditModal.vue"
 import ProductBatchUpdateBar from "@/modules/product/components/ProductBatchUpdateBar.vue"
-import ProductHighlights from "@/modules/product/components/ProductHighlights.vue"
 import {
   batchUpdateProducts,
   createCategory,
@@ -27,15 +26,12 @@ import {
   deleteTag,
   deleteVariant,
   fetchCategories,
-  fetchNewestProducts,
   fetchProductAttributes,
   fetchProductDetail,
   fetchProductHistory,
   fetchProductImages,
   fetchTags,
   fetchVariants,
-  fetchTopSellingProducts,
-  hardDeleteProduct,
   hideProductIfOutOfStock,
   quickUpdateProduct,
   searchProducts,
@@ -82,7 +78,7 @@ const GENDERS: Array<{ label: string; value: TargetGender }> = [
   { label: "Nam", value: "NAM" },
   { label: "Nữ", value: "NU" },
   { label: "Trẻ em", value: "TRE_EM" },
-  { label: "Unisex", value: "UNISEX" },
+  { label: "Dùng chung", value: "UNISEX" },
 ]
 
 const DISPLAY_STATUS_OPTIONS: Array<{ label: string; value: ProductDisplayStatus }> = [
@@ -94,7 +90,7 @@ const DISPLAY_STATUS_OPTIONS: Array<{ label: string; value: ProductDisplayStatus
 const STOCK_STATUS_OPTIONS: Array<{ label: string; value: VariantStockStatus }> = [
   { label: "Còn hàng", value: "CON_HANG" },
   { label: "Hết hàng", value: "HET_HANG" },
-  { label: "Pre-order", value: "PRE_ORDER" },
+  { label: "Đặt trước", value: "PRE_ORDER" },
 ]
 
 const SORT_OPTIONS = [
@@ -113,7 +109,6 @@ const loadingProducts = ref(false)
 const loadingCategories = ref(false)
 const loadingTags = ref(false)
 const loadingDetail = ref(false)
-const loadingHighlights = ref(false)
 const savingProduct = ref(false)
 const savingCategory = ref(false)
 const savingTag = ref(false)
@@ -129,8 +124,6 @@ const message = ref("")
 const errorMessage = ref("")
 
 const productItems = ref<ProductSummaryResponse[]>([])
-const topSellingItems = ref<ProductSummaryResponse[]>([])
-const newestItems = ref<ProductSummaryResponse[]>([])
 const categoryItems = ref<CategoryResponse[]>([])
 const tagItems = ref<TagResponse[]>([])
 const categoryKeyword = ref("")
@@ -277,7 +270,7 @@ function notifySuccess(text: string) {
 }
 
 function notifyError(error: unknown) {
-  const fallback = "Có lỗi xảy ra khi gọi API backend."
+  const fallback = "Có lỗi xảy ra khi gọi hệ thống."
 
   if (typeof error === "object" && error !== null && "response" in error) {
     const anyError = error as { response?: { data?: { message?: string } | string } }
@@ -322,7 +315,7 @@ function statusLabel(value?: string | null) {
     NGUNG_BAN: "Ngừng bán",
     CON_HANG: "Còn hàng",
     HET_HANG: "Hết hàng",
-    PRE_ORDER: "Pre-order",
+    PRE_ORDER: "Đặt trước",
     AO: "Áo",
     QUAN: "Quần",
     VO: "Vớ",
@@ -331,7 +324,7 @@ function statusLabel(value?: string | null) {
     NAM: "Nam",
     NU: "Nữ",
     TRE_EM: "Trẻ em",
-    UNISEX: "Unisex",
+    UNISEX: "Dùng chung",
   }
 
   return labels[value || ""] || value || "-"
@@ -495,23 +488,6 @@ async function loadProducts() {
   }
 }
 
-async function loadHighlights() {
-  loadingHighlights.value = true
-
-  try {
-    const [topSelling, newest] = await Promise.all([
-      fetchTopSellingProducts(),
-      fetchNewestProducts(6),
-    ])
-    topSellingItems.value = topSelling || []
-    newestItems.value = newest || []
-  } catch (error) {
-    notifyError(error)
-  } finally {
-    loadingHighlights.value = false
-  }
-}
-
 async function openProductDetail(id: number) {
   selectedProductId.value = id
   loadingDetail.value = true
@@ -519,26 +495,26 @@ async function openProductDetail(id: number) {
   try {
     const [detail, images, attributes, history, variants] = await Promise.all([
       fetchProductDetail(id),
-      fetchProductImages(id).catch(() => []),
-      fetchProductAttributes(id).catch(() => []),
-      fetchProductHistory(id).catch(() => []),
+      fetchProductImages(id).catch(() => null),
+      fetchProductAttributes(id).catch(() => null),
+      fetchProductHistory(id).catch(() => null),
       fetchVariants(
         id,
         variantFilters.keyword || undefined,
         variantFilters.stockStatus || undefined,
-      ).catch(() => []),
+      ).catch(() => null),
     ])
 
     selectedProduct.value = {
       ...detail,
-      images: images.length ? images : detail.images || [],
-      variants: variants.length ? variants : detail.variants || [],
+      images: images ?? detail.images ?? [],
+      variants: variants ?? detail.variants ?? [],
       categories: detail.categories || [],
       tags: detail.tags || [],
-      attributes,
+      attributes: attributes ?? detail.attributes ?? [],
     }
 
-    selectedProductHistory.value = history
+    selectedProductHistory.value = history ?? []
   } catch (error) {
     notifyError(error)
   } finally {
@@ -548,7 +524,7 @@ async function openProductDetail(id: number) {
 
 async function refreshAll() {
   resetMessage()
-  await Promise.all([loadCategories(), loadTags(), loadProducts(), loadHighlights()])
+  await Promise.all([loadCategories(), loadTags(), loadProducts()])
 
   if (selectedProductId.value) {
     await openProductDetail(selectedProductId.value)
@@ -667,26 +643,6 @@ async function removeProduct(id: number) {
   }
 }
 
-async function removeProductHard(id: number) {
-  if (!window.confirm("Xóa cứng sản phẩm này? Hành động này không thể hoàn tác.")) return
-
-  try {
-    await hardDeleteProduct(id)
-    notifySuccess("Đã xóa cứng sản phẩm.")
-
-    if (selectedProductId.value === id) {
-      selectedProductId.value = null
-      selectedProduct.value = null
-      selectedProductHistory.value = []
-    }
-
-    clearBatchSelection()
-    await refreshAll()
-  } catch (error) {
-    notifyError(error)
-  }
-}
-
 async function runHideIfOutOfStock(id: number) {
   try {
     await hideProductIfOutOfStock(id)
@@ -750,7 +706,7 @@ async function submitBatchUpdate() {
   )
 
   if (!hasAnyField) {
-    errorMessage.value = "Batch update cần ít nhất 1 trường để cập nhật."
+    errorMessage.value = "Cập nhật hàng loạt cần ít nhất 1 trường để cập nhật."
     return
   }
 
@@ -758,7 +714,7 @@ async function submitBatchUpdate() {
 
   try {
     await batchUpdateProducts({ items: payloadItems })
-    notifySuccess(`Đã batch update ${selectedProductIds.value.length} sản phẩm.`)
+    notifySuccess(`Đã cập nhật hàng loạt ${selectedProductIds.value.length} sản phẩm.`)
     clearBatchSelection()
     await refreshAll()
   } catch (error) {
@@ -786,10 +742,10 @@ async function submitCategory() {
   try {
     if (editingCategoryId.value) {
       await updateCategory(editingCategoryId.value, { ...categoryForm })
-      notifySuccess("Đã cập nhật category.")
+      notifySuccess("Đã cập nhật danh mục.")
     } else {
       await createCategory({ ...categoryForm })
-      notifySuccess("Đã tạo category mới.")
+      notifySuccess("Đã tạo danh mục mới.")
     }
 
     categoryModalOpen.value = false
@@ -802,11 +758,11 @@ async function submitCategory() {
 }
 
 async function removeCategory(id: number) {
-  if (!window.confirm("Xóa category này?")) return
+  if (!window.confirm("Xóa danh mục này?")) return
 
   try {
     await deleteCategory(id)
-    notifySuccess("Đã xóa category.")
+    notifySuccess("Đã xóa danh mục.")
     await loadCategories()
   } catch (error) {
     notifyError(error)
@@ -820,7 +776,7 @@ async function handleCategoryImageChange(payload: { id: number; event: Event }) 
 
   try {
     await uploadCategoryImage(payload.id, file)
-    notifySuccess("Đã upload ảnh category.")
+    notifySuccess("Đã tải ảnh danh mục lên.")
     await loadCategories()
   } catch (error) {
     notifyError(error)
@@ -847,10 +803,10 @@ async function submitTag() {
   try {
     if (editingTagId.value) {
       await updateTag(editingTagId.value, { ...tagForm })
-      notifySuccess("Đã cập nhật tag.")
+      notifySuccess("Đã cập nhật thẻ.")
     } else {
       await createTag({ ...tagForm })
-      notifySuccess("Đã tạo tag mới.")
+      notifySuccess("Đã tạo thẻ mới.")
     }
 
     tagModalOpen.value = false
@@ -863,11 +819,11 @@ async function submitTag() {
 }
 
 async function removeTag(id: number) {
-  if (!window.confirm("Xóa tag này?")) return
+  if (!window.confirm("Xóa thẻ này?")) return
 
   try {
     await deleteTag(id)
-    notifySuccess("Đã xóa tag.")
+    notifySuccess("Đã xóa thẻ.")
     await loadTags()
   } catch (error) {
     notifyError(error)
@@ -899,10 +855,10 @@ async function submitVariant() {
   try {
     if (editingVariantId.value) {
       await updateVariant(editingVariantId.value, { ...variantForm })
-      notifySuccess("Đã cập nhật variant.")
+      notifySuccess("Đã cập nhật biến thể.")
     } else {
       await createVariant(selectedProductId.value, { ...variantForm })
-      notifySuccess("Đã tạo variant mới.")
+      notifySuccess("Đã tạo biến thể mới.")
     }
 
     variantModalOpen.value = false
@@ -914,11 +870,11 @@ async function submitVariant() {
 }
 
 async function removeVariant(id: number) {
-  if (!selectedProductId.value || !window.confirm("Xóa variant này?")) return
+  if (!selectedProductId.value || !window.confirm("Xóa biến thể này?")) return
 
   try {
     await deleteVariant(id)
-    notifySuccess("Đã xóa variant.")
+    notifySuccess("Đã xóa biến thể.")
     await openProductDetail(selectedProductId.value)
     await loadProducts()
   } catch (error) {
@@ -984,7 +940,7 @@ async function handleProductImagesChange(event: Event) {
 
   try {
     await uploadProductImages(selectedProductId.value, files, true)
-    notifySuccess("Đã upload ảnh sản phẩm.")
+    notifySuccess("Đã tải ảnh sản phẩm lên.")
     await openProductDetail(selectedProductId.value)
   } catch (error) {
     notifyError(error)
@@ -1025,7 +981,7 @@ function handleImageOrderChange(image: ProductImageResponse, event: Event) {
     sortOrder: nextSortOrder,
   })
     .then(() => {
-      notifySuccess("Đã cập nhật thứ tự ảnh.")
+      notifySuccess("Đã cập nhật thứ tự sắp xếp ảnh.")
       return openProductDetail(selectedProductId.value as number)
     })
     .catch(notifyError)
@@ -1060,11 +1016,10 @@ onMounted(async () => {
           Quản lý sản phẩm
         </div>
         <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900">
-          Product Dashboard
+          Bảng điều khiển sản phẩm
         </h1>
         <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-          Quản lý sản phẩm, danh mục, tag, biến thể và theo dõi các sản phẩm nổi bật
-          trong cùng một màn hình.
+          Quản lý sản phẩm, danh mục, thẻ và biến thể trong cùng một màn hình.
         </p>
       </div>
 
@@ -1114,14 +1069,6 @@ onMounted(async () => {
       {{ errorMessage }}
     </div>
 
-    <ProductHighlights
-      :top-selling="topSellingItems"
-      :newest="newestItems"
-      :loading="loadingHighlights"
-      :format-currency="formatCurrency"
-      @open="openProductDetail"
-    />
-
     <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
       <div class="space-y-6">
         <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1160,7 +1107,7 @@ onMounted(async () => {
                 "
                 class="rounded-xl px-4 py-2 text-sm font-medium transition"
               >
-                Tag
+                Thẻ
               </button>
             </div>
 
@@ -1173,7 +1120,7 @@ onMounted(async () => {
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div class="text-xs text-slate-500">Thẻ tag</div>
+                <div class="text-xs text-slate-500">Thẻ</div>
                 <div class="mt-1 text-xl font-semibold text-slate-900">
                   {{ tagItems.length }}
                 </div>
@@ -1269,7 +1216,6 @@ onMounted(async () => {
         @quick-edit="openQuickEdit"
         @hide-oos="runHideIfOutOfStock"
         @delete-soft="removeProduct"
-        @delete-hard="removeProductHard"
         @create-variant="openCreateVariant"
         @edit-variant="openEditVariant"
         @remove-variant="removeVariant"
@@ -1325,7 +1271,7 @@ onMounted(async () => {
       <div class="w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
           <h3 class="text-lg font-semibold text-slate-900">
-            {{ editingVariantId ? "Sửa variant" : "Thêm variant" }}
+            {{ editingVariantId ? "Sửa biến thể" : "Thêm biến thể" }}
           </h3>
 
           <button
@@ -1338,7 +1284,7 @@ onMounted(async () => {
 
         <div class="grid gap-4 px-6 py-5 md:grid-cols-2">
           <label class="space-y-2">
-            <span class="text-sm font-medium text-slate-700">SKU variant</span>
+            <span class="text-sm font-medium text-slate-700">SKU biến thể</span>
             <input
               v-model="variantForm.sku"
               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-slate-400 focus:bg-white"
@@ -1346,7 +1292,7 @@ onMounted(async () => {
           </label>
 
           <label class="space-y-2">
-            <span class="text-sm font-medium text-slate-700">Size</span>
+            <span class="text-sm font-medium text-slate-700">Kích thước</span>
             <input
               v-model="variantForm.size"
               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-slate-400 focus:bg-white"
@@ -1417,7 +1363,7 @@ onMounted(async () => {
             @click="submitVariant"
             class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
           >
-            {{ editingVariantId ? "Lưu thay đổi" : "Tạo variant" }}
+            {{ editingVariantId ? "Lưu thay đổi" : "Tạo biến thể" }}
           </button>
         </div>
       </div>

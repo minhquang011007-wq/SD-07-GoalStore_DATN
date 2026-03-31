@@ -29,7 +29,7 @@ watch(() => props.keyword, (value) => {
   <div>
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <button @click="emit('create')" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white">
-        <span class="inline-flex items-center gap-2"><Plus :size="16" /> Thêm category</span>
+        <span class="inline-flex items-center gap-2"><Plus :size="16" /> Thêm danh mục</span>
       </button>
 
       <label class="relative min-w-[260px] flex-1">
@@ -38,20 +38,20 @@ watch(() => props.keyword, (value) => {
           v-model="localKeyword"
           @input="emit('search', localKeyword)"
           class="w-full rounded-xl border px-9 py-2.5 text-sm"
-          placeholder="Tìm category theo tên hoặc mô tả..."
+          placeholder="Tìm danh mục theo tên hoặc mô tả..."
         />
       </label>
 
-      <button @click="emit('refresh')" class="rounded-xl border px-4 py-2 text-sm font-medium">Làm mới danh mục</button>
+      <button @click="emit('refresh')" class="rounded-xl border px-4 py-2 text-sm font-medium">Làm mới danh sách danh mục</button>
     </div>
 
-    <div v-if="loading" class="mt-4 rounded-2xl border p-10 text-center text-sm text-slate-500">Đang tải category...</div>
+    <div v-if="loading" class="mt-4 rounded-2xl border p-10 text-center text-sm text-slate-500">Đang tải danh mục...</div>
 
     <div v-else class="mt-4 grid gap-4 md:grid-cols-2">
       <div v-for="category in items" :key="category.id" class="rounded-2xl border p-4">
         <div class="flex gap-3">
           <img v-if="category.imageUrl" :src="resolveProductImageUrl(category.imageUrl)" class="h-16 w-16 rounded-xl border object-cover" />
-          <div v-else class="flex h-16 w-16 items-center justify-center rounded-xl border bg-slate-50 text-[11px] text-slate-400">No image</div>
+          <div v-else class="flex h-16 w-16 items-center justify-center rounded-xl border bg-slate-50 text-[11px] text-slate-400">Chưa có ảnh</div>
           <div class="flex-1">
             <div class="flex items-start justify-between gap-2">
               <div>
@@ -76,7 +76,7 @@ watch(() => props.keyword, (value) => {
         </div>
       </div>
 
-      <div v-if="items.length === 0" class="rounded-2xl border p-10 text-center text-sm text-slate-500">Chưa có category.</div>
+      <div v-if="items.length === 0" class="rounded-2xl border p-10 text-center text-sm text-slate-500">Chưa có danh mục.</div>
     </div>
   </div>
 </template>

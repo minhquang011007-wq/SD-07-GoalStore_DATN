@@ -22,7 +22,7 @@ const emit = defineEmits<{
       <h4 class="font-semibold text-slate-900">Ảnh sản phẩm</h4>
       <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
         <Upload :size="14" />
-        {{ props.uploading ? 'Đang upload...' : 'Upload ảnh' }}
+        {{ props.uploading ? 'Đang tải ảnh lên...' : 'Tải ảnh lên' }}
         <input type="file" class="hidden" accept="image/*" multiple @change="emit('upload', $event)" />
       </label>
     </div>
@@ -34,12 +34,12 @@ const emit = defineEmits<{
             {{ image.avatar ? 'Ảnh đại diện' : 'Ảnh phụ' }}
           </span>
           <div class="flex gap-2">
-            <button @click="emit('set-avatar', image)" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Đặt avatar</button>
+            <button @click="emit('set-avatar', image)" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Đặt làm ảnh đại diện</button>
             <button @click="emit('remove', image.id)" class="rounded-lg border px-2 py-1 text-rose-600 hover:bg-rose-50">Xóa</button>
           </div>
         </div>
         <label class="mt-2 block text-xs text-slate-500">
-          Sort order
+          Thứ tự sắp xếp
           <input :value="image.sortOrder" type="number" class="mt-1 w-full rounded-lg border px-2 py-1 text-sm" @change="emit('image-order-change', { image, event: $event })" />
         </label>
       </div>
