@@ -10,4 +10,6 @@ import java.util.List;
 public interface RewardRuleRepository extends JpaRepository<RewardRule, Integer> {
 
     List<RewardRule> findByIsActiveTrueOrderByRequiredPointsAsc();
+
+    boolean existsByRewardNameIgnoreCase(String rewardName);
 }

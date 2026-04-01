@@ -6,7 +6,6 @@ import { hydrateSessionFromUrl } from "@/shared/lib/cross-app-auth"
 type StaffRole = "ADMIN" | "SALES" | "INVENTORY"
 type Role = StaffRole | "CUSTOMER"
 
-
 const HOME_BY_ROLE: Record<StaffRole, string> = {
   ADMIN: "/admin",
   SALES: "/sales",
@@ -70,7 +69,7 @@ const router = createRouter({
         },
         {
           path: "sales/customers",
-          component: () => import("@/modules/customer/views/ContactsView.vue"),
+          component: () => import("@/modules/customer/views/CustomerListView.vue"),
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
         },
         {
@@ -110,13 +109,11 @@ router.beforeEach((to, _from, next) => {
   const isPublic = Boolean(to.meta?.public)
   const role = getRole() as Role | ""
 
-  // Chưa đăng nhập
   if (!token) {
     if (isPublic) return next()
     return next("/login")
   }
 
-  // Đã đăng nhập mà vào login
   if (to.path === "/login") {
     if (role && role !== "CUSTOMER") {
       return next(HOME_BY_ROLE[role as StaffRole] || "/admin")
@@ -124,7 +121,6 @@ router.beforeEach((to, _from, next) => {
     return next()
   }
 
-  // FE quản lý chỉ cho staff vào
   const allowedRoles = to.meta?.roles as StaffRole[] | undefined
   if (allowedRoles) {
     if (!role || role === "CUSTOMER" || !allowedRoles.includes(role as StaffRole)) {

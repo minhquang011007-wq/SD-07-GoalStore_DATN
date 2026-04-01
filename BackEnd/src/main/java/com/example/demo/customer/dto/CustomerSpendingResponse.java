@@ -1,6 +1,7 @@
 package com.example.demo.customer.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class CustomerSpendingResponse {
 
@@ -10,7 +11,9 @@ public class CustomerSpendingResponse {
     private String sdt;
     private String loaiKhach;
     private Integer diemTichLuy;
+    private Integer tongDonHang;
     private BigDecimal tongChiTieu;
+    private LocalDateTime lanMuaCuoi;
 
     public CustomerSpendingResponse() {
     }
@@ -63,11 +66,27 @@ public class CustomerSpendingResponse {
         this.diemTichLuy = diemTichLuy;
     }
 
+    public Integer getTongDonHang() {
+        return tongDonHang;
+    }
+
+    public void setTongDonHang(Integer tongDonHang) {
+        this.tongDonHang = tongDonHang;
+    }
+
     public BigDecimal getTongChiTieu() {
         return tongChiTieu;
     }
 
     public void setTongChiTieu(BigDecimal tongChiTieu) {
         this.tongChiTieu = tongChiTieu;
+    }
+
+    public LocalDateTime getLanMuaCuoi() {
+        return lanMuaCuoi;
+    }
+
+    public void setLanMuaCuoi(LocalDateTime lanMuaCuoi) {
+        this.lanMuaCuoi = lanMuaCuoi;
     }
 }
