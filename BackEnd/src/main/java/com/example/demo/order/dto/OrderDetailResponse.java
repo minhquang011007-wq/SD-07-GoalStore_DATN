@@ -7,16 +7,37 @@ import java.util.List;
 public class OrderDetailResponse {
 
     private Integer id;
+    private String code;
     private Integer customerId;
     private String customerName;
     private LocalDateTime orderDate;
     private String status;
     private String paymentMethod;
+    private String paymentStatus;
     private String channel;
+
+    private String receiverName;
+    private String receiverPhone;
+    private String shippingAddress;
+    private String note;
+
+    private BigDecimal subtotal;
+    private BigDecimal shippingFee;
+    private BigDecimal discountAmount;
     private BigDecimal total;
-    private Integer totalItems;
+
     private List<OrderItemDetailResponse> items;
+    private Integer totalItems;
     private ReturnResponse returnInfo;
+    private ReturnInfoDTO returnInfoDTO;
+
+    public ReturnInfoDTO getReturnInfoDTO() {
+        return returnInfoDTO;
+    }
+
+    public void setReturnInfoDTO(ReturnInfoDTO returnInfoDTO) {
+        this.returnInfoDTO = returnInfoDTO;
+    }
 
     public Integer getId() {
         return id;
@@ -24,6 +45,14 @@ public class OrderDetailResponse {
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public Integer getCustomerId() {
@@ -66,12 +95,76 @@ public class OrderDetailResponse {
         this.paymentMethod = paymentMethod;
     }
 
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
     public String getChannel() {
         return channel;
     }
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
+
+    public String getReceiverPhone() {
+        return receiverPhone;
+    }
+
+    public void setReceiverPhone(String receiverPhone) {
+        this.receiverPhone = receiverPhone;
+    }
+
+    public String getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(String shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public BigDecimal getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(BigDecimal subtotal) {
+        this.subtotal = subtotal;
+    }
+
+    public BigDecimal getShippingFee() {
+        return shippingFee;
+    }
+
+    public void setShippingFee(BigDecimal shippingFee) {
+        this.shippingFee = shippingFee;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 
     public BigDecimal getTotal() {
@@ -82,20 +175,20 @@ public class OrderDetailResponse {
         this.total = total;
     }
 
-    public Integer getTotalItems() {
-        return totalItems;
-    }
-
-    public void setTotalItems(Integer totalItems) {
-        this.totalItems = totalItems;
-    }
-
     public List<OrderItemDetailResponse> getItems() {
         return items;
     }
 
     public void setItems(List<OrderItemDetailResponse> items) {
         this.items = items;
+    }
+
+    public Integer getTotalItems() {
+        return totalItems;
+    }
+
+    public void setTotalItems(Integer totalItems) {
+        this.totalItems = totalItems;
     }
 
     public ReturnResponse getReturnInfo() {

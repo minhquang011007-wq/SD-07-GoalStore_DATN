@@ -70,9 +70,10 @@ public class OrderController {
         return ResponseEntity.ok(orderService.returnOrder(id, request));
     }
 
+    // FE bán online hiện đang gọi DELETE để hủy đơn, không phải xóa cứng.
+    // Vì vậy map DELETE sang cancelOrder để đặt hàng/hủy đơn không bị vỡ luồng.
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteOrder(@PathVariable Integer id) {
-        orderService.deleteOrder(id);
-        return ResponseEntity.ok("Xóa đơn hàng thành công");
+    public ResponseEntity<OrderDetailResponse> deleteOrder(@PathVariable Integer id) {
+        return ResponseEntity.ok(orderService.cancelOrder(id));
     }
 }

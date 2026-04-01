@@ -620,13 +620,117 @@ export async function updateCustomerAddress(id: number, payload: CustomerAddress
 export async function checkoutCart(payload: CheckoutOrderRequest) {
   try {
     if (!hasMockSession()) {
-      const order = await apiRequest<OrderResponse>('/api/orders/checkout', {
+      const customerId = Number(payload.customerId)
+
+      if (!customerId) {
+        throw new Error('Không xác định được khách hàng để checkout')
+      }
+
+      // Lấy giỏ hàng thật từ backend trước, không lấy localStorage
+      const cart = await apiRequest<CartResponse>(`/api/carts?customerId=${customerId}`)
+      const items = cart.items || []
+
+      if (!items.length) {
+        throw new Error('Không thể checkout vì giỏ hàng đang trống')
+      }
+
+      // Địa chỉ: ưu tiên local nếu FE đang lưu
+      let addresses = getCustomerAddressesLocal(customerId)
+
+      // Nếu local không có thì lấy từ backend
+      if (!addresses.length) {
+        try {
+          addresses = await apiRequest<CustomerAddress[]>(
+            `/api/customer-addresses?customerId=${customerId}`
+          )
+        } catch {
+          addresses = []
+        }
+      }
+
+      const address = payload.addressId
+        ? addresses.find((item) => item.id === Number(payload.addressId))
+        : addresses.find((item) => item.isDefault) || addresses[0]
+
+      if (!address) {
+        throw new Error('Bạn cần thêm địa chỉ nhận hàng trước khi đặt đơn')
+      }
+
+      const subtotal = items.reduce((sum, item) => sum + toNumber(item.lineTotal), 0)
+      const shippingFee = toNumber(payload.shippingFee)
+      const discountAmount = toNumber(payload.discountAmount)
+      const total = subtotal + shippingFee - discountAmount
+
+      const backendPayload = {
+        customerId,
+        paymentMethod: payload.paymentMethod || 'COD',
+        channel: 'ONLINE',
+        note: payload.note || '',
+        receiverName: address.receiverName,
+        receiverPhone: address.receiverPhone,
+        shippingAddress: formatAddress(address),
+        shippingFee,
+        discountAmount,
+        items: items.map((item) => ({
+          variantId: Number(item.variantId),
+          quantity: Number(item.quantity),
+        })),
+      }
+
+      const backendOrder = await apiRequest<any>('/api/orders', {
         method: 'POST',
-        body: payload,
+        body: backendPayload,
       })
-      saveLastOrder(order)
-      dispatchCartUpdated({ customerId: payload.customerId, totalAmount: 0, items: [] })
-      return order
+
+      const normalizedOrder: OrderResponse = {
+        id: backendOrder?.id ?? null,
+        code: backendOrder?.code ?? (backendOrder?.id ? `ORD${String(backendOrder.id).padStart(6, '0')}` : null),
+        customerId,
+        customerName:
+          backendOrder?.customerName ||
+          (typeof window !== 'undefined'
+            ? window.localStorage.getItem('displayName') || 'Khách hàng'
+            : 'Khách hàng'),
+        status: backendOrder?.status || 'MOI',
+        paymentMethod: backendOrder?.paymentMethod || payload.paymentMethod || 'COD',
+        paymentStatus: backendOrder?.paymentStatus || 'UNPAID',
+        channel: backendOrder?.channel || 'ONLINE',
+        receiverName: backendOrder?.receiverName || address.receiverName,
+        receiverPhone: backendOrder?.receiverPhone || address.receiverPhone,
+        shippingAddress: backendOrder?.shippingAddress || formatAddress(address),
+        note: backendOrder?.note || payload.note || '',
+        subtotal: backendOrder?.subtotal ?? subtotal,
+        shippingFee: backendOrder?.shippingFee ?? shippingFee,
+        discountAmount: backendOrder?.discountAmount ?? discountAmount,
+        total: backendOrder?.total ?? total,
+        orderDate: backendOrder?.orderDate || new Date().toISOString(),
+        items: (backendOrder?.items || items).map((item: any, index: number) => ({
+          itemId: item?.id ?? item?.itemId ?? index + 1,
+          productId: item?.productId ?? null,
+          variantId: item?.variantId ?? null,
+          sku: item?.variantSku ?? item?.sku ?? null,
+          productName: item?.productName ?? null,
+          imageUrl: item?.imageUrl ?? null,
+          size: item?.size ?? null,
+          color: item?.color ?? null,
+          quantity: Number(item?.quantity ?? 0),
+          unitPrice: toNumber(item?.unitPrice),
+          lineTotal:
+            item?.lineTotal ??
+            toNumber(item?.unitPrice) * Number(item?.quantity || 0),
+        })),
+      }
+
+      saveLastOrder(normalizedOrder)
+      writeCartLines([])
+      dispatchCartUpdated({
+        cartId: cart.cartId ?? 1,
+        customerId,
+        totalAmount: 0,
+        items: [],
+      })
+
+      return normalizedOrder
     }
   } catch (error) {
     if (!shouldUseLocalFallback(error)) {
@@ -677,8 +781,7 @@ export async function getOrderDetail(orderId: number) {
 export async function cancelCustomerOrder(orderId: number) {
   try {
     if (!hasMockSession()) {
-      await apiRequest<string>(`/api/orders/${orderId}`, { method: 'DELETE' })
-      return await getOrderDetail(orderId)
+      return await apiRequest<OrderResponse>(`/api/orders/${orderId}/cancel`, { method: 'PUT' })
     }
   } catch (error) {
     if (!shouldUseLocalFallback(error)) {

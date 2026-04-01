@@ -1,5 +1,6 @@
 package com.example.demo.order.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class CreateOrderRequest {
@@ -7,6 +8,15 @@ public class CreateOrderRequest {
     private Integer customerId;
     private String paymentMethod;
     private String channel;
+
+    private String receiverName;
+    private String receiverPhone;
+    private String shippingAddress;
+    private String note;
+
+    private BigDecimal shippingFee;
+    private BigDecimal discountAmount;
+
     private List<CreateOrderItemRequest> items;
 
     public Integer getCustomerId() {
@@ -31,6 +41,54 @@ public class CreateOrderRequest {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
+
+    public String getReceiverPhone() {
+        return receiverPhone;
+    }
+
+    public void setReceiverPhone(String receiverPhone) {
+        this.receiverPhone = receiverPhone;
+    }
+
+    public String getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(String shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public BigDecimal getShippingFee() {
+        return shippingFee;
+    }
+
+    public void setShippingFee(BigDecimal shippingFee) {
+        this.shippingFee = shippingFee;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 
     public List<CreateOrderItemRequest> getItems() {

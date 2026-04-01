@@ -8,7 +8,15 @@ import com.example.demo.loyalty.entity.VipProgram;
 import com.example.demo.loyalty.repository.LoyaltyRepository;
 import com.example.demo.loyalty.repository.VipHistoryRepository;
 import com.example.demo.loyalty.repository.VipProgramRepository;
-import com.example.demo.order.dto.*;
+import com.example.demo.order.dto.CreateOrderItemRequest;
+import com.example.demo.order.dto.CreateOrderRequest;
+import com.example.demo.order.dto.OrderDetailResponse;
+import com.example.demo.order.dto.OrderItemDetailResponse;
+import com.example.demo.order.dto.OrderResponse;
+import com.example.demo.order.dto.ReturnOrderRequest;
+import com.example.demo.order.dto.ReturnResponse;
+import com.example.demo.order.dto.UpdateOrderRequest;
+import com.example.demo.order.dto.UpdateOrderStatusRequest;
 import com.example.demo.order.entity.Order;
 import com.example.demo.order.entity.OrderItem;
 import com.example.demo.order.entity.ReturnOrder;
@@ -77,6 +85,7 @@ public class OrderServiceImpl implements OrderService {
         if (status == null || status.isBlank()) {
             return getAllOrders();
         }
+
         return orderRepository.findByStatusWithCustomerOrderByOrderDateDesc(normalizeStatus(status))
                 .stream()
                 .map(this::toSummary)
@@ -103,19 +112,37 @@ public class OrderServiceImpl implements OrderService {
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
 
+        BigDecimal subtotal = calculateSubtotal(request.getItems());
+        BigDecimal shippingFee = request.getShippingFee() == null ? BigDecimal.ZERO : request.getShippingFee();
+        BigDecimal discountAmount = request.getDiscountAmount() == null ? BigDecimal.ZERO : request.getDiscountAmount();
+        BigDecimal total = subtotal.add(shippingFee).subtract(discountAmount);
+
+        if (total.compareTo(BigDecimal.ZERO) < 0) {
+            total = BigDecimal.ZERO;
+        }
+
         Order order = new Order();
         order.setCustomer(customer);
         order.setOrderDate(LocalDateTime.now());
         order.setStatus("MOI");
         order.setPaymentMethod(safeUpper(request.getPaymentMethod()));
         order.setChannel(safeUpper(request.getChannel()));
-        order.setTotal(BigDecimal.ZERO);
+        order.setReceiverName(request.getReceiverName());
+        order.setReceiverPhone(request.getReceiverPhone());
+        order.setShippingAddress(request.getShippingAddress());
+        order.setNote(request.getNote());
+        order.setSubtotal(subtotal);
+        order.setShippingFee(shippingFee);
+        order.setDiscountAmount(discountAmount);
+        order.setPaymentStatus("UNPAID");
+        order.setTotal(total);
 
         order = orderRepository.save(order);
 
-        BigDecimal total = rebuildOrderItems(order.getId(), request.getItems(), false);
-        order.setTotal(total);
-        orderRepository.save(order);
+        rebuildOrderItems(order.getId(), request.getItems(), false);
+
+        order = orderRepository.findById(order.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         return toDetail(order);
     }
@@ -131,10 +158,12 @@ public class OrderServiceImpl implements OrderService {
         }
 
         restoreStockForOrder(order.getId());
-
         orderItemRepository.deleteByOrderId(order.getId());
 
-        BigDecimal total = rebuildOrderItems(order.getId(), request.getItems(), false);
+        BigDecimal subtotal = rebuildOrderItems(order.getId(), request.getItems(), false);
+        BigDecimal shippingFee = order.getShippingFee() == null ? BigDecimal.ZERO : order.getShippingFee();
+        BigDecimal discountAmount = order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount();
+        BigDecimal total = subtotal.add(shippingFee).subtract(discountAmount);
 
         if (request.getPaymentMethod() != null) {
             order.setPaymentMethod(safeUpper(request.getPaymentMethod()));
@@ -144,8 +173,13 @@ public class OrderServiceImpl implements OrderService {
             order.setChannel(safeUpper(request.getChannel()));
         }
 
+        if (total.compareTo(BigDecimal.ZERO) < 0) {
+            total = BigDecimal.ZERO;
+        }
+
+        order.setSubtotal(subtotal);
         order.setTotal(total);
-        orderRepository.save(order);
+        order = orderRepository.save(order);
 
         return toDetail(order);
     }
@@ -158,23 +192,27 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Trạng thái không hợp lệ");
         }
 
-        String oldStatus = safeUpper(order.getStatus());
+        String oldStatus = normalizeStatus(order.getStatus());
         String newStatus = normalizeStatus(request.getStatus());
 
         if (Objects.equals(oldStatus, newStatus)) {
             return toDetail(order);
         }
 
-        if ("HUY".equals(oldStatus)) {
-            throw new RuntimeException("Đơn đã hủy, không thể cập nhật trạng thái");
+        if ("HUY".equals(newStatus)) {
+            throw new RuntimeException("Muốn hủy đơn hãy dùng endpoint /cancel");
         }
 
-        if ("TRA_HANG".equals(oldStatus)) {
-            throw new RuntimeException("Đơn đã trả hàng, không thể cập nhật trạng thái");
+        if ("TRA_HANG".equals(newStatus)) {
+            throw new RuntimeException("Muốn trả hàng hãy dùng endpoint /return");
+        }
+
+        if (!isValidForwardStatusTransition(oldStatus, newStatus)) {
+            throw new RuntimeException("Không thể chuyển trạng thái từ " + oldStatus + " sang " + newStatus);
         }
 
         order.setStatus(newStatus);
-        orderRepository.save(order);
+        order = orderRepository.save(order);
 
         if (!"HOAN_TAT".equals(oldStatus) && "HOAN_TAT".equals(newStatus)) {
             int pointsToAdd = calculatePoints(order.getTotal());
@@ -188,22 +226,27 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public OrderDetailResponse cancelOrder(Integer id) {
         Order order = findOrder(id);
+        String currentStatus = normalizeStatus(order.getStatus());
 
-        if ("HUY".equalsIgnoreCase(order.getStatus())) {
+        if ("HUY".equals(currentStatus)) {
             return toDetail(order);
         }
 
-        if ("TRA_HANG".equalsIgnoreCase(order.getStatus())) {
+        if ("TRA_HANG".equals(currentStatus)) {
             throw new RuntimeException("Đơn đã trả hàng, không thể hủy");
         }
 
-        if ("HOAN_TAT".equalsIgnoreCase(order.getStatus())) {
+        if ("HOAN_TAT".equals(currentStatus)) {
             throw new RuntimeException("Đơn đã hoàn tất, muốn hoàn lại phải dùng trả hàng");
+        }
+
+        if (!isCancellableStatus(currentStatus)) {
+            throw new RuntimeException("Trạng thái hiện tại không thể hủy đơn");
         }
 
         restoreStockForOrder(order.getId());
         order.setStatus("HUY");
-        orderRepository.save(order);
+        order = orderRepository.save(order);
 
         return toDetail(order);
     }
@@ -211,22 +254,23 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public OrderDetailResponse returnOrder(Integer id, ReturnOrderRequest request) {
         Order order = findOrder(id);
+        String currentStatus = normalizeStatus(order.getStatus());
 
         if (returnOrderRepository.existsByOrderId(id)) {
             throw new RuntimeException("Đơn hàng này đã được trả");
         }
 
-        if ("HUY".equalsIgnoreCase(order.getStatus())) {
+        if ("HUY".equals(currentStatus)) {
             throw new RuntimeException("Đơn đã hủy, không thể trả");
         }
 
-        if (!"HOAN_TAT".equalsIgnoreCase(order.getStatus())
-                && !"DANG_GIAO".equalsIgnoreCase(order.getStatus())
-                && !"DANG_XU_LY".equalsIgnoreCase(order.getStatus())) {
-            throw new RuntimeException("Chỉ cho phép trả đơn đang xử lý, đang giao hoặc hoàn tất");
+        if ("TRA_HANG".equals(currentStatus)) {
+            throw new RuntimeException("Đơn đã ở trạng thái trả hàng");
         }
 
-        restoreStockForOrder(order.getId());
+        if (!isReturnableStatus(currentStatus)) {
+            throw new RuntimeException("Chỉ cho phép trả đơn ở trạng thái DANG_GIAO hoặc HOAN_TAT");
+        }
 
         BigDecimal refundTotal = request != null && request.getRefundTotal() != null
                 ? request.getRefundTotal()
@@ -236,6 +280,12 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Số tiền hoàn không hợp lệ");
         }
 
+        if (refundTotal.compareTo(order.getTotal()) > 0) {
+            throw new RuntimeException("Số tiền hoàn không được lớn hơn tổng đơn");
+        }
+
+        restoreStockForOrder(order.getId());
+
         ReturnOrder returnOrder = new ReturnOrder();
         returnOrder.setOrderId(order.getId());
         returnOrder.setReturnDate(LocalDateTime.now());
@@ -244,18 +294,23 @@ public class OrderServiceImpl implements OrderService {
         returnOrder.setNote(request != null ? request.getNote() : null);
         returnOrderRepository.save(returnOrder);
 
-        boolean wasCompleted = "HOAN_TAT".equalsIgnoreCase(order.getStatus());
+        boolean wasCompleted = "HOAN_TAT".equals(currentStatus);
 
         order.setStatus("TRA_HANG");
         order.setTotal(order.getTotal().subtract(refundTotal));
         if (order.getTotal().compareTo(BigDecimal.ZERO) < 0) {
             order.setTotal(BigDecimal.ZERO);
         }
-        orderRepository.save(order);
+        order = orderRepository.save(order);
 
         if (wasCompleted) {
             int pointsToSubtract = calculatePoints(refundTotal);
-            subtractLoyalty(order.getCustomer(), pointsToSubtract, "SUBTRACT", "Trừ điểm do trả hàng đơn #" + order.getId());
+            subtractLoyalty(
+                    order.getCustomer(),
+                    pointsToSubtract,
+                    "SUBTRACT",
+                    "Trừ điểm do trả hàng đơn #" + order.getId()
+            );
             recalculateVip(order.getCustomer(), "Trả hàng đơn #" + order.getId());
         }
 
@@ -265,8 +320,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void deleteOrder(Integer id) {
         Order order = findOrder(id);
+        String currentStatus = normalizeStatus(order.getStatus());
 
-        if ("HOAN_TAT".equalsIgnoreCase(order.getStatus())) {
+        if ("HOAN_TAT".equals(currentStatus)) {
             throw new RuntimeException("Không được xóa đơn đã hoàn tất");
         }
 
@@ -298,7 +354,7 @@ public class OrderServiceImpl implements OrderService {
 
     private void ensureEditable(Order order) {
         String status = safeUpper(order.getStatus());
-        if ("HOAN_TAT".equals(status) || "HUY".equals(status) || "TRA_HANG".equals(status)) {
+        if ("DANG_GIAO".equals(status) || "HOAN_TAT".equals(status) || "HUY".equals(status) || "TRA_HANG".equals(status)) {
             throw new RuntimeException("Đơn ở trạng thái hiện tại không được chỉnh sửa");
         }
     }
@@ -317,12 +373,51 @@ public class OrderServiceImpl implements OrderService {
         return value;
     }
 
-    private BigDecimal rebuildOrderItems(Integer orderId, List<CreateOrderItemRequest> items, boolean restoreStockBefore) {
+    private boolean isValidForwardStatusTransition(String oldStatus, String newStatus) {
+        return switch (oldStatus) {
+            case "MOI" -> "DANG_XU_LY".equals(newStatus);
+            case "DANG_XU_LY" -> "DANG_GIAO".equals(newStatus);
+            case "DANG_GIAO" -> "HOAN_TAT".equals(newStatus);
+            default -> false;
+        };
+    }
+
+    private boolean isCancellableStatus(String status) {
+        return "MOI".equals(status) || "DANG_XU_LY".equals(status) || "DANG_GIAO".equals(status);
+    }
+
+    private boolean isReturnableStatus(String status) {
+        return "DANG_GIAO".equals(status) || "HOAN_TAT".equals(status);
+    }
+
+    private BigDecimal calculateSubtotal(List<CreateOrderItemRequest> items) {
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        for (CreateOrderItemRequest itemRequest : items) {
+            if (itemRequest.getVariantId() == null) {
+                throw new RuntimeException("Thiếu variantId");
+            }
+            if (itemRequest.getQuantity() == null || itemRequest.getQuantity() <= 0) {
+                throw new RuntimeException("Số lượng phải lớn hơn 0");
+            }
+
+            ProductVariant variant = productVariantRepository.findById(itemRequest.getVariantId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy variant " + itemRequest.getVariantId()));
+
+            BigDecimal price = variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice();
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+            subtotal = subtotal.add(lineTotal);
+        }
+
+        return subtotal;
+    }
+
+    private BigDecimal rebuildOrderItems(Integer orderId, List<? extends CreateOrderItemRequest> items, boolean restoreStockBefore) {
         if (restoreStockBefore) {
             restoreStockForOrder(orderId);
         }
 
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal subtotal = BigDecimal.ZERO;
 
         for (CreateOrderItemRequest itemRequest : items) {
             if (itemRequest.getVariantId() == null) {
@@ -340,24 +435,27 @@ public class OrderServiceImpl implements OrderService {
             }
 
             BigDecimal price = variant.getSalePrice() != null ? variant.getSalePrice() : variant.getPrice();
+            Integer quantity = itemRequest.getQuantity();
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(quantity));
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrderId(orderId);
             orderItem.setVariantId(variant.getId());
-            orderItem.setQuantity(itemRequest.getQuantity());
+            orderItem.setQuantity(quantity);
             orderItem.setUnitPrice(price);
+            orderItem.setLineTotal(lineTotal);
             orderItemRepository.save(orderItem);
 
-            variant.setStockQuantity(variant.getStockQuantity() - itemRequest.getQuantity());
+            variant.setStockQuantity(variant.getStockQuantity() - quantity);
             variant.setStockStatus(variant.getStockQuantity() > 0
                     ? VariantStockStatus.CON_HANG
                     : VariantStockStatus.HET_HANG);
             productVariantRepository.save(variant);
 
-            total = total.add(price.multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
+            subtotal = subtotal.add(lineTotal);
         }
 
-        return total;
+        return subtotal;
     }
 
     private void restoreStockForOrder(Integer orderId) {
@@ -431,7 +529,10 @@ public class OrderServiceImpl implements OrderService {
 
         for (VipProgram program : programs) {
             boolean enoughPoints = points >= (program.getMinPoints() == null ? 0 : program.getMinPoints());
-            boolean enoughSpending = spending.compareTo(program.getMinSpending() == null ? BigDecimal.ZERO : program.getMinSpending()) >= 0;
+            boolean enoughSpending = spending.compareTo(
+                    program.getMinSpending() == null ? BigDecimal.ZERO : program.getMinSpending()
+            ) >= 0;
+
             if (enoughPoints || enoughSpending) {
                 matchedLevel = program.getLevelName();
             }
@@ -453,15 +554,25 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderResponse toSummary(Order order) {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+        BigDecimal subtotal = calculateItemsSubtotal(items);
 
         OrderResponse response = new OrderResponse();
         response.setId(order.getId());
+        response.setCode("#" + order.getId());
         response.setCustomerId(order.getCustomer().getId());
         response.setCustomerName(order.getCustomer().getTen());
         response.setOrderDate(order.getOrderDate());
         response.setStatus(order.getStatus());
         response.setPaymentMethod(order.getPaymentMethod());
+        response.setPaymentStatus(order.getPaymentStatus());
         response.setChannel(order.getChannel());
+        response.setReceiverName(order.getReceiverName());
+        response.setReceiverPhone(order.getReceiverPhone());
+        response.setShippingAddress(order.getShippingAddress());
+        response.setNote(order.getNote());
+        response.setSubtotal(order.getSubtotal() != null ? order.getSubtotal() : subtotal);
+        response.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
+        response.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
         response.setTotal(order.getTotal());
         response.setTotalItems(items.stream().mapToInt(OrderItem::getQuantity).sum());
         return response;
@@ -470,6 +581,7 @@ public class OrderServiceImpl implements OrderService {
     private OrderDetailResponse toDetail(Order order) {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         List<OrderItemDetailResponse> detailItems = new ArrayList<>();
+        BigDecimal subtotal = BigDecimal.ZERO;
 
         for (OrderItem item : items) {
             ProductVariant variant = productVariantRepository.findById(item.getVariantId()).orElse(null);
@@ -479,7 +591,13 @@ public class OrderServiceImpl implements OrderService {
             r.setVariantId(item.getVariantId());
             r.setQuantity(item.getQuantity());
             r.setUnitPrice(item.getUnitPrice());
-            r.setLineTotal(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            r.setLineTotal(
+                    item.getLineTotal() != null
+                            ? item.getLineTotal()
+                            : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
+            );
+
+            subtotal = subtotal.add(r.getLineTotal());
 
             if (variant != null) {
                 r.setVariantSku(variant.getSku());
@@ -510,18 +628,40 @@ public class OrderServiceImpl implements OrderService {
 
         OrderDetailResponse response = new OrderDetailResponse();
         response.setId(order.getId());
+        response.setCode("#" + order.getId());
         response.setCustomerId(order.getCustomer().getId());
         response.setCustomerName(order.getCustomer().getTen());
         response.setOrderDate(order.getOrderDate());
         response.setStatus(order.getStatus());
         response.setPaymentMethod(order.getPaymentMethod());
+        response.setPaymentStatus(order.getPaymentStatus());
         response.setChannel(order.getChannel());
+        response.setReceiverName(order.getReceiverName());
+        response.setReceiverPhone(order.getReceiverPhone());
+        response.setShippingAddress(order.getShippingAddress());
+        response.setNote(order.getNote());
+        response.setSubtotal(order.getSubtotal() != null ? order.getSubtotal() : subtotal);
+        response.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
+        response.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
         response.setTotal(order.getTotal());
         response.setItems(detailItems);
         response.setTotalItems(detailItems.stream().mapToInt(OrderItemDetailResponse::getQuantity).sum());
         response.setReturnInfo(returnResponse);
 
         return response;
+    }
+
+    private BigDecimal calculateItemsSubtotal(List<OrderItem> items) {
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        for (OrderItem item : items) {
+            BigDecimal lineTotal = item.getLineTotal() != null
+                    ? item.getLineTotal()
+                    : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            subtotal = subtotal.add(lineTotal);
+        }
+
+        return subtotal;
     }
 
     private String safeUpper(String value) {

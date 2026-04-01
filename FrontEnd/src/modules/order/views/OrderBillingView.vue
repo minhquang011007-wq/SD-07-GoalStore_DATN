@@ -22,15 +22,13 @@ import {
   updateOrderItem,
   updateOrderStatus,
 } from "./order.api"
-import type { OrderResponse, OrderStatus, ReturnResponse } from "./types"
+import type { OrderDetailResponse, OrderResponse, OrderStatus, ReturnResponse } from "./types"
 
 const STATUS_OPTIONS: Array<{ label: string; value: OrderStatus }> = [
   { label: "Mới", value: "MOI" },
   { label: "Đang xử lý", value: "DANG_XU_LY" },
   { label: "Đang giao", value: "DANG_GIAO" },
   { label: "Hoàn tất", value: "HOAN_TAT" },
-  { label: "Hủy", value: "HUY" },
-  { label: "Trả hàng", value: "TRA_HANG" },
 ]
 
 const CHANNEL_OPTIONS = [
@@ -55,7 +53,7 @@ const successMessage = ref("")
 const orders = ref<OrderResponse[]>([])
 const returns = ref<ReturnResponse[]>([])
 const selectedOrderId = ref<number | null>(null)
-const selectedOrder = ref<OrderResponse | null>(null)
+const selectedOrder = ref<OrderDetailResponse | null>(null)
 const quantityDrafts = ref<Record<number, number>>({})
 
 const filters = reactive({
@@ -84,8 +82,22 @@ const summaryCards = computed(() => {
 
 const filteredOrders = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase()
-  if (!keyword) return orders.value
-  return orders.value.filter((order) => {
+  let list = [...orders.value]
+
+  if (filters.channel) {
+    list = list.filter((order) => String(order.channel || "").toUpperCase() === filters.channel)
+  }
+
+  if (filters.date) {
+    list = list.filter((order) => {
+      if (!order.orderDate) return false
+      return String(order.orderDate).slice(0, 10) === filters.date
+    })
+  }
+
+  if (!keyword) return list
+
+  return list.filter((order) => {
     const values = [
       order.code,
       order.customerName,
@@ -104,20 +116,37 @@ const canEditItems = computed(() => {
 
 const canCancelOrder = computed(() => {
   const status = selectedOrder.value?.status
-  return status === "MOI" || status === "DANG_XU_LY"
+  return status === "MOI" || status === "DANG_XU_LY" || status === "DANG_GIAO"
 })
 
-const canCreateReturn = computed(() => selectedOrder.value?.status === "HOAN_TAT")
+const canCreateReturn = computed(() => {
+  const status = selectedOrder.value?.status
+  return status === "HOAN_TAT" || status === "DANG_GIAO"
+})
 
 watch(selectedOrder, (order) => {
-  detailState.status = (order?.status as OrderStatus | undefined) || ""
+  detailState.status = getNextStatus(order?.status) || ""
   detailState.returnReason = ""
   detailState.returnNote = ""
   quantityDrafts.value = {}
+
   for (const item of order?.items || []) {
     quantityDrafts.value[item.itemId] = item.quantity
   }
 })
+
+function getNextStatus(status?: string | null): OrderStatus | "" {
+  switch (status) {
+    case "MOI":
+      return "DANG_XU_LY"
+    case "DANG_XU_LY":
+      return "DANG_GIAO"
+    case "DANG_GIAO":
+      return "HOAN_TAT"
+    default:
+      return ""
+  }
+}
 
 function setMessage(type: "success" | "error", message: string) {
   if (type === "success") {
@@ -189,17 +218,32 @@ function statusClass(status: string | null | undefined) {
   }
 }
 
+function normalizeSummaryOrder(order: OrderResponse): OrderResponse {
+  return {
+    ...order,
+    code: order.code || `#${order.id}`,
+    subtotal: Number(order.subtotal ?? order.total ?? 0),
+    shippingFee: Number(order.shippingFee ?? 0),
+    discountAmount: Number(order.discountAmount ?? 0),
+    total: Number(order.total ?? 0),
+  }
+}
+
 async function loadOrders() {
   loadingOrders.value = true
   clearMessage()
+
   try {
     const data = await fetchOrders({
       status: filters.status || undefined,
+      customerId: filters.customerId ? Number(filters.customerId) : undefined,
       channel: filters.channel || undefined,
       date: filters.date || undefined,
-      customerId: filters.customerId ? Number(filters.customerId) : undefined,
     })
-    orders.value = data.sort((a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime())
+
+    orders.value = data
+      .map(normalizeSummaryOrder)
+      .sort((a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime())
 
     const stillExists = selectedOrderId.value && orders.value.some((item) => item.id === selectedOrderId.value)
     if (!stillExists) {
@@ -221,8 +265,26 @@ async function loadOrders() {
 async function loadOrderDetail(orderId: number) {
   selectedOrderId.value = orderId
   loadingDetail.value = true
+
   try {
-    selectedOrder.value = await fetchOrderDetail(orderId)
+    const detail = await fetchOrderDetail(orderId)
+
+    selectedOrder.value = {
+      ...detail,
+      code: detail.code || `#${detail.id}`,
+      subtotal: Number(
+        detail.subtotal ??
+          (detail.items || []).reduce((sum, item) => sum + Number(item.lineTotal || 0), 0),
+      ),
+      shippingFee: Number(detail.shippingFee ?? 0),
+      discountAmount: Number(detail.discountAmount ?? 0),
+      total: Number(detail.total ?? 0),
+      items: (detail.items || []).map((item) => ({
+        ...item,
+        itemId: Number(item.itemId),
+        lineTotal: Number(item.lineTotal ?? Number(item.unitPrice || 0) * Number(item.quantity || 0)),
+      })),
+    }
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Không tải được chi tiết đơn hàng")
   } finally {
@@ -232,10 +294,9 @@ async function loadOrderDetail(orderId: number) {
 
 async function loadReturns() {
   loadingReturns.value = true
+
   try {
-    returns.value = (await fetchReturns()).sort(
-      (a, b) => new Date(b.returnDate || 0).getTime() - new Date(a.returnDate || 0).getTime(),
-    )
+    returns.value = await fetchReturns()
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Không tải được phiếu trả hàng")
   } finally {
@@ -245,14 +306,21 @@ async function loadReturns() {
 
 async function handleUpdateStatus() {
   if (!selectedOrder.value || !detailState.status) return
+
   actionLoading.value = true
   clearMessage()
+
   try {
     const updated = await updateOrderStatus(selectedOrder.value.id, detailState.status)
     selectedOrder.value = updated
+
     const index = orders.value.findIndex((item) => item.id === updated.id)
-    if (index >= 0) orders.value[index] = updated
+    if (index >= 0) {
+      orders.value[index] = { ...orders.value[index], ...updated, code: updated.code || `#${updated.id}` }
+    }
+
     setMessage("success", "Đã cập nhật trạng thái đơn hàng")
+    await Promise.all([loadOrderDetail(updated.id), loadReturns()])
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Cập nhật trạng thái thất bại")
   } finally {
@@ -262,6 +330,7 @@ async function handleUpdateStatus() {
 
 async function handleUpdateItem(itemId: number) {
   if (!selectedOrder.value) return
+
   const newQuantity = Number(quantityDrafts.value[itemId])
   if (!Number.isInteger(newQuantity) || newQuantity <= 0) {
     setMessage("error", "Số lượng sản phẩm phải lớn hơn 0")
@@ -270,12 +339,18 @@ async function handleUpdateItem(itemId: number) {
 
   actionLoading.value = true
   clearMessage()
+
   try {
-    const updated = await updateOrderItem(selectedOrder.value.id, itemId, newQuantity)
+    const updated = await updateOrderItem(selectedOrder.value.id, selectedOrder.value, itemId, newQuantity)
     selectedOrder.value = updated
+
     const index = orders.value.findIndex((item) => item.id === updated.id)
-    if (index >= 0) orders.value[index] = updated
+    if (index >= 0) {
+      orders.value[index] = { ...orders.value[index], ...updated, code: updated.code || `#${updated.id}` }
+    }
+
     setMessage("success", "Đã cập nhật số lượng sản phẩm trong đơn")
+    await loadOrderDetail(updated.id)
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Cập nhật sản phẩm thất bại")
   } finally {
@@ -285,15 +360,18 @@ async function handleUpdateItem(itemId: number) {
 
 async function handleCancelOrder() {
   if (!selectedOrder.value) return
+
   const confirmed = window.confirm(`Xác nhận hủy đơn ${selectedOrder.value.code}?`)
   if (!confirmed) return
 
   actionLoading.value = true
   clearMessage()
+
   try {
-    await cancelOrder(selectedOrder.value.id)
+    const updated = await cancelOrder(selectedOrder.value.id)
+    selectedOrder.value = updated
     setMessage("success", "Đã hủy đơn hàng và hoàn lại tồn kho")
-    await loadOrders()
+    await Promise.all([loadOrders(), loadReturns()])
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Hủy đơn hàng thất bại")
   } finally {
@@ -310,13 +388,21 @@ async function handleCreateReturn() {
 
   actionLoading.value = true
   clearMessage()
+
   try {
     await createReturn(selectedOrder.value.id, {
       reason: detailState.returnReason.trim(),
       note: detailState.returnNote.trim() || undefined,
+      refundTotal: Number(selectedOrder.value.total || 0),
     })
+
     setMessage("success", "Đã tạo phiếu trả hàng")
     await Promise.all([loadOrders(), loadReturns()])
+
+    if (selectedOrderId.value) {
+      await loadOrderDetail(selectedOrderId.value)
+    }
+
     activeTab.value = "returns"
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Tạo phiếu trả hàng thất bại")
@@ -413,7 +499,12 @@ onMounted(async () => {
             <span class="text-xs font-medium text-slate-500">Trạng thái</span>
             <select v-model="filters.status" class="w-full rounded-md border px-3 py-2 outline-none focus:border-primary">
               <option value="">Tất cả trạng thái</option>
-              <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              <option value="MOI">Mới</option>
+              <option value="DANG_XU_LY">Đang xử lý</option>
+              <option value="DANG_GIAO">Đang giao</option>
+              <option value="HOAN_TAT">Hoàn tất</option>
+              <option value="HUY">Đã hủy</option>
+              <option value="TRA_HANG">Trả hàng</option>
             </select>
           </label>
 
@@ -561,7 +652,7 @@ onMounted(async () => {
               <div class="flex flex-wrap items-center gap-2 justify-between">
                 <div>
                   <div class="text-sm font-semibold text-slate-900">Trạng thái đơn hàng</div>
-                  <div class="text-xs text-slate-500">Có thể cập nhật trực tiếp từ admin</div>
+                  <div class="text-xs text-slate-500">Cập nhật đúng luồng: Mới → Đang xử lý → Đang giao → Hoàn tất</div>
                 </div>
                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(selectedOrder.status)">
                   {{ labelStatus(selectedOrder.status) }}
@@ -569,16 +660,25 @@ onMounted(async () => {
               </div>
 
               <div class="flex flex-col gap-2 sm:flex-row">
-                <select v-model="detailState.status" class="w-full rounded-md border px-3 py-2 outline-none focus:border-primary">
-                  <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+                <select
+                  v-model="detailState.status"
+                  class="w-full rounded-md border px-3 py-2 outline-none focus:border-primary"
+                  :disabled="!getNextStatus(selectedOrder.status)"
+                >
+                  <option value="">Không có bước tiếp theo</option>
+                  <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
                 </select>
+
                 <button
                   class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  :disabled="!detailState.status || actionLoading"
+                  :disabled="!detailState.status || actionLoading || !getNextStatus(selectedOrder.status)"
                   @click="handleUpdateStatus"
                 >
                   Cập nhật trạng thái
                 </button>
+
                 <button
                   v-if="canCancelOrder"
                   class="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -600,6 +700,7 @@ onMounted(async () => {
                 <table class="min-w-full text-sm">
                   <thead class="bg-slate-50 text-left text-slate-500">
                     <tr>
+                      <th class="px-3 py-2 font-medium">Sản phẩm</th>
                       <th class="px-3 py-2 font-medium">SKU</th>
                       <th class="px-3 py-2 font-medium">Đơn giá</th>
                       <th class="px-3 py-2 font-medium">Số lượng</th>
@@ -609,6 +710,12 @@ onMounted(async () => {
                   </thead>
                   <tbody>
                     <tr v-for="item in selectedOrder.items" :key="item.itemId" class="border-t">
+                      <td class="px-3 py-3">
+                        <div class="font-medium text-slate-900">{{ item.productName || '--' }}</div>
+                        <div class="text-xs text-slate-500">
+                          {{ item.color || '--' }} / {{ item.size || '--' }}
+                        </div>
+                      </td>
                       <td class="px-3 py-3 font-medium text-slate-900">{{ item.sku || 'Không có SKU' }}</td>
                       <td class="px-3 py-3">{{ formatCurrency(item.unitPrice) }}</td>
                       <td class="px-3 py-3">
@@ -660,7 +767,7 @@ onMounted(async () => {
                 <RotateCcw :size="18" class="mt-0.5 text-orange-600" />
                 <div>
                   <div class="font-semibold text-orange-900">Tạo phiếu trả hàng</div>
-                  <div class="text-sm text-orange-700">Chỉ dùng khi đơn đã hoàn tất và khách yêu cầu hoàn trả.</div>
+                  <div class="text-sm text-orange-700">Chỉ dùng khi đơn đang giao hoặc đã hoàn tất.</div>
                 </div>
               </div>
 
@@ -695,8 +802,9 @@ onMounted(async () => {
             </div>
 
             <div v-if="selectedOrder.status === 'TRA_HANG'" class="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
-              Đơn hàng này đã được chuyển sang trạng thái trả hàng. Xem tab <strong>Phiếu trả hàng</strong> để theo dõi hoàn tiền.
+              Đơn hàng này đã được chuyển sang trạng thái trả hàng. Xem tab <strong>Phiếu trả hàng</strong>.
             </div>
+
             <div v-if="selectedOrder.status === 'HUY'" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
               Đơn hàng đã bị hủy. Tồn kho đã được hoàn lại theo logic backend.
             </div>
@@ -752,8 +860,8 @@ onMounted(async () => {
       <div class="flex items-start gap-2">
         <XCircle :size="16" class="mt-0.5 text-slate-500" />
         <div>
-          Gợi ý test nhanh: tạo đơn ở website bán hàng → qua admin mở tab Đơn hàng → đổi trạng thái sang <strong>Đang xử lý</strong>,
-          <strong>Đang giao</strong>, <strong>Hoàn tất</strong> → sau đó thử tạo phiếu trả hàng trong tab chi tiết.
+          Luồng đúng: <strong>Mới → Đang xử lý → Đang giao → Hoàn tất</strong>. Hủy đơn dùng nút
+          <strong>Hủy đơn</strong>. Trả hàng dùng khối <strong>Tạo phiếu trả hàng</strong>.
         </div>
       </div>
     </div>

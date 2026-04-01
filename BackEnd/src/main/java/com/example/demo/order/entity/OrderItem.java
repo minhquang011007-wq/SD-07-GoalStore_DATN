@@ -1,11 +1,15 @@
 package com.example.demo.order.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "Order_Items")
+@Getter
+@Setter
 public class OrderItem {
 
     @Id
@@ -21,49 +25,21 @@ public class OrderItem {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "unit_price", nullable = false)
+    @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
-    public OrderItem() {
-    }
+    @Column(name = "line_total", nullable = false, precision = 12, scale = 2)
+    private BigDecimal lineTotal;
 
-    public Integer getId() {
-        return id;
-    }
+    @Column(name = "product_name")
+    private String productName;
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    @Column(name = "variant_sku")
+    private String variantSku;
 
-    public Integer getOrderId() {
-        return orderId;
-    }
+    @Column(name = "size")
+    private String size;
 
-    public void setOrderId(Integer orderId) {
-        this.orderId = orderId;
-    }
-
-    public Integer getVariantId() {
-        return variantId;
-    }
-
-    public void setVariantId(Integer variantId) {
-        this.variantId = variantId;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
-
-    public BigDecimal getUnitPrice() {
-        return unitPrice;
-    }
-
-    public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-    }
+    @Column(name = "color")
+    private String color;
 }
