@@ -42,11 +42,12 @@ async function refreshHeaderState() {
   }
 }
 
-function isActive(type: "home" | "shop" | "contact" | "cart") {
+function isActive(type: "home" | "shop" | "contact" | "cart" | "orders") {
   const path = route.path
   if (type === "home") return path === "/"
   if (type === "shop") return path === "/shop" || path.startsWith("/shop-details")
   if (type === "contact") return path === "/contact"
+  if (type === "orders") return path === "/orders"
   return path === "/cart" || path === "/checkout"
 }
 
@@ -59,16 +60,22 @@ function handleStorageChange() {
   refreshHeaderState()
 }
 
+function handleCartUpdated() {
+  refreshHeaderState()
+}
+
 watch(() => route.fullPath, () => {
   refreshHeaderState()
 }, { immediate: true })
 
 onMounted(() => {
   window.addEventListener("storage", handleStorageChange)
+  window.addEventListener("goalstore:cart-updated", handleCartUpdated as EventListener)
 })
 
 onUnmounted(() => {
   window.removeEventListener("storage", handleStorageChange)
+  window.removeEventListener("goalstore:cart-updated", handleCartUpdated as EventListener)
 })
 </script>
 
@@ -79,6 +86,7 @@ onUnmounted(() => {
         <div class="offcanvas__links">
           <template v-if="loggedIn">
             <a href="#">{{ displayName }}</a>
+            <RouterLink to="/orders">Đơn hàng</RouterLink>
             <a href="#" @click.prevent="logout">Đăng xuất</a>
           </template>
           <template v-else>
@@ -118,18 +126,13 @@ onUnmounted(() => {
                 <div class="header__top__links">
                   <template v-if="loggedIn">
                     <a href="#">{{ displayName }}</a>
+                    <RouterLink to="/orders">Đơn hàng</RouterLink>
                     <a href="#" @click.prevent="logout">Đăng xuất</a>
                   </template>
                   <template v-else>
                     <RouterLink to="/login">Đăng nhập</RouterLink>
                   </template>
                   <RouterLink to="/contact">Hỗ trợ</RouterLink>
-                </div>
-                <div class="header__top__hover">
-                  <span>VNĐ <i class="arrow_carrot-down"></i></span>
-                  <ul>
-                    <li>VNĐ</li>
-                  </ul>
                 </div>
               </div>
             </div>
@@ -151,6 +154,7 @@ onUnmounted(() => {
                 <li :class="{ active: isActive('home') }"><RouterLink to="/">Trang chủ</RouterLink></li>
                 <li :class="{ active: isActive('shop') }"><RouterLink to="/shop">Sản phẩm</RouterLink></li>
                 <li :class="{ active: isActive('contact') }"><RouterLink to="/contact">Liên hệ</RouterLink></li>
+                <li :class="{ active: isActive('orders') }"><RouterLink to="/orders">Đơn hàng</RouterLink></li>
                 <li :class="{ active: isActive('cart') }"><RouterLink to="/cart">Giỏ hàng</RouterLink></li>
               </ul>
             </nav>
@@ -160,7 +164,7 @@ onUnmounted(() => {
             <div class="header__nav__option">
               <RouterLink to="/shop"><img src="/legacy/img/icon/search.png" alt="search" /></RouterLink>
               <RouterLink to="/cart"><img src="/legacy/img/icon/cart.png" alt="cart" /> <span>{{ cartCount }}</span></RouterLink>
-              <div class="price">{{ formatCurrency(cartTotal) }}</div>
+              <!-- <div class="price">{{ formatCurrency(cartTotal) }}</div> -->
             </div>
           </div>
         </div>

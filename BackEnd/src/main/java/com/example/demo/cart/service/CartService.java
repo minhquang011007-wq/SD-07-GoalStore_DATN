@@ -129,7 +129,19 @@ public class CartService {
             itemResponse.setItemId(item.getId());
             itemResponse.setVariantId(item.getVariant().getId());
             itemResponse.setSku(item.getVariant().getSku());
+            itemResponse.setProductId(item.getVariant().getProduct().getId());
             itemResponse.setProductName(item.getVariant().getProduct().getName());
+            itemResponse.setImageUrl(item.getVariant().getProduct().getImages().stream()
+                    .sorted((a, b) -> {
+                        int avatarCompare = Boolean.compare(Boolean.TRUE.equals(b.getAvatar()), Boolean.TRUE.equals(a.getAvatar()));
+                        if (avatarCompare != 0) return avatarCompare;
+                        int sortCompare = Integer.compare(a.getSortOrder() == null ? 0 : a.getSortOrder(), b.getSortOrder() == null ? 0 : b.getSortOrder());
+                        if (sortCompare != 0) return sortCompare;
+                        return Integer.compare(a.getId() == null ? 0 : a.getId(), b.getId() == null ? 0 : b.getId());
+                    })
+                    .map(image -> image.getImageUrl())
+                    .findFirst()
+                    .orElse(null));
             itemResponse.setSize(item.getVariant().getSize());
             itemResponse.setColor(item.getVariant().getColor());
             itemResponse.setQuantity(item.getQuantity());

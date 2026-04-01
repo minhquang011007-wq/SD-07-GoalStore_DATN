@@ -104,6 +104,89 @@ export type CartResponse = {
   items?: CartItem[]
 }
 
+export type CustomerAddress = {
+  id: number
+  customerId: number
+  receiverName: string
+  receiverPhone: string
+  province: string
+  district: string
+  ward: string
+  detailAddress: string
+  isDefault?: boolean | null
+}
+
+export type CustomerAddressPayload = {
+  customerId: number
+  receiverName: string
+  receiverPhone: string
+  province: string
+  district: string
+  ward: string
+  detailAddress: string
+  isDefault?: boolean
+}
+
+export type CheckoutOrderRequest = {
+  customerId: number
+  addressId?: number | null
+  paymentMethod?: 'COD' | 'BANKING' | 'MOMO' | 'VNPAY' | string
+  note?: string
+  shippingFee?: number
+  discountAmount?: number
+}
+
+export type OrderItemSummary = {
+  itemId?: number | null
+  productId?: number | null
+  variantId?: number | null
+  sku?: string | null
+  productName?: string | null
+  imageUrl?: string | null
+  size?: string | null
+  color?: string | null
+  quantity?: number | null
+  unitPrice?: number | string | null
+  lineTotal?: number | string | null
+}
+
+export type OrderResponse = {
+  id?: number | null
+  code?: string | null
+  customerId?: number | null
+  customerName?: string | null
+  staffId?: number | null
+  staffUsername?: string | null
+  status?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  channel?: string | null
+  receiverName?: string | null
+  receiverPhone?: string | null
+  shippingAddress?: string | null
+  note?: string | null
+  subtotal?: number | string | null
+  shippingFee?: number | string | null
+  discountAmount?: number | string | null
+  total?: number | string | null
+  orderDate?: string | null
+  items?: OrderItemSummary[]
+}
+
+export type ReturnRequest = {
+  reason: string
+  note?: string
+}
+
+export type ReturnResponse = {
+  id?: number | null
+  orderId?: number | null
+  reason?: string | null
+  note?: string | null
+  refundTotal?: number | string | null
+  returnDate?: string | null
+}
+
 export type PublicProductSearchParams = {
   page?: number
   size?: number

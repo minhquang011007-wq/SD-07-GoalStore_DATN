@@ -6,17 +6,11 @@ import { hydrateSessionFromUrl } from "@/shared/lib/cross-app-auth"
 type StaffRole = "ADMIN" | "SALES" | "INVENTORY"
 type Role = StaffRole | "CUSTOMER"
 
-const STOREFRONT_URL = (import.meta.env.VITE_STOREFRONT_URL as string | undefined) || "http://localhost:5173"
 
 const HOME_BY_ROLE: Record<StaffRole, string> = {
   ADMIN: "/admin",
   SALES: "/sales",
   INVENTORY: "/inventory",
-}
-
-function redirectByRole(role: Role) {
-  if (role === "CUSTOMER") return "/login"
-  return HOME_BY_ROLE[role as StaffRole] || "/admin"
 }
 
 const router = createRouter({

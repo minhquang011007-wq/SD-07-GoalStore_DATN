@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue"
 import { useRouter } from "vue-router"
-import { saveSession, type AuthSession } from "@/shared/lib/auth"
 import { registerCustomer } from "@/shared/lib/auth.api"
 
 const router = useRouter()
@@ -87,43 +86,18 @@ async function handleRegister() {
     <div
       class="mx-auto grid max-w-6xl overflow-hidden rounded-[32px] bg-white shadow-2xl shadow-slate-200/70 lg:grid-cols-[1.05fr_0.95fr]"
     >
-      <section class="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <div>
-          <p class="text-sm uppercase tracking-[0.35em] text-slate-300">GoalStore</p>
-          <h1 class="mt-6 max-w-md text-5xl font-semibold leading-tight">
-            Tạo tài khoản khách hàng.
-          </h1>
-          <p class="mt-6 max-w-lg text-base leading-8 text-slate-300">
-            Đăng ký nhanh để mua sắm, theo dõi đơn hàng và trải nghiệm đầy đủ hệ thống bán hàng online của GoalStore.
-          </p>
-        </div>
-
-        <div class="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200">
-          <div>
-            <p class="font-semibold text-white">Đăng ký nhanh</p>
-            <p class="mt-1 text-slate-300">
-              Chỉ cần họ tên, email, số điện thoại và mật khẩu để bắt đầu.
-            </p>
-          </div>
-          <div>
-            <p class="font-semibold text-white">Dành cho khách hàng</p>
-            <p class="mt-1 text-slate-300">
-              Trang này dùng để tạo tài khoản CUSTOMER cho frontend bán hàng online.
-            </p>
-          </div>
-          <div>
-            <p class="font-semibold text-white">Tự đăng nhập sau khi tạo</p>
-            <p class="mt-1 text-slate-300">
-              Sau khi đăng ký thành công, hệ thống sẽ tự lưu phiên đăng nhập và chuyển bạn về trang chủ.
-            </p>
-          </div>
-        </div>
-      </section>
+      <section class="relative hidden min-h-[820px] overflow-hidden bg-slate-950 lg:block">
+        <img
+          src="/legacy/img/anhdangky.jpg"
+          alt="GoalStore register banner"
+          class="absolute inset-0 h-full w-full object-cover"
+        />
+        </section>
 
       <section class="p-6 sm:p-8 lg:p-10">
         <div class="mx-auto max-w-xl">
-          <p class="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Customer Register</p>
-          <h2 class="mt-3 text-3xl font-semibold text-slate-950">Đăng ký GoalStore</h2>
+          <p class="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">GOALSTORE</p>
+          <h2 class="mt-3 text-3xl font-semibold text-slate-950">Đăng ký tài khoản</h2>
           <p class="mt-3 text-sm leading-6 text-slate-500">
             Tạo tài khoản khách hàng để mua sắm và theo dõi đơn hàng trên GoalStore.
           </p>

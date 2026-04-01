@@ -2,11 +2,17 @@ import { apiRequest } from '@/shared/lib/api'
 import type {
   CartItem,
   CartResponse,
+  CheckoutOrderRequest,
+  CustomerAddress,
+  CustomerAddressPayload,
+  OrderResponse,
   PageResponse,
   PublicProductDetail,
   PublicProductSearchParams,
   PublicProductSummary,
   ProductCategory,
+  ReturnRequest,
+  ReturnResponse,
 } from '@/shared/lib/shop.types'
 import {
   findProductById,
@@ -19,7 +25,10 @@ import {
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8080'
 const CART_STORAGE_KEY = 'goalstore_cart'
-
+const ADDRESS_STORAGE_KEY = 'goalstore_customer_addresses'
+const ORDER_STORAGE_KEY = 'goalstore_customer_orders'
+const RETURN_STORAGE_KEY = 'goalstore_order_returns'
+const LAST_ORDER_STORAGE_KEY = 'goalstore_last_order'
 
 type LocalCartLine = {
   itemId: number
@@ -29,6 +38,31 @@ type LocalCartLine = {
 
 function delay<T>(value: T, ms = 80) {
   return new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
+}
+
+function isNetworkError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  return message.includes('failed to fetch') || message.includes('networkerror') || message.includes('load failed')
+}
+
+function getStoredToken() {
+  if (typeof window === 'undefined') return ''
+  return window.localStorage.getItem('token') || ''
+}
+
+function hasMockSession() {
+  const token = getStoredToken()
+  if (!token) return false
+  return !token.includes('.') || token.startsWith('mock-') || token.startsWith('customer-') || token.startsWith('staff-')
+}
+
+function shouldUseLocalFallback(error?: unknown) {
+  return hasMockSession() || isNetworkError(error)
+}
+
+function dispatchCartUpdated(cart: CartResponse) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('goalstore:cart-updated', { detail: cart }))
 }
 
 function readCartLines(): LocalCartLine[] {
@@ -46,6 +80,22 @@ function readCartLines(): LocalCartLine[] {
 function writeCartLines(lines: LocalCartLine[]) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines))
+}
+
+function readJsonStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return fallback
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
+function writeJsonStorage<T>(key: string, value: T) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(key, JSON.stringify(value))
 }
 
 function normalizeSort(sort?: string) {
@@ -147,6 +197,137 @@ function buildCartResponse(lines: LocalCartLine[]): CartResponse {
   }
 }
 
+function readAddressBook() {
+  return readJsonStorage<CustomerAddress[]>(ADDRESS_STORAGE_KEY, [])
+}
+
+function writeAddressBook(addresses: CustomerAddress[]) {
+  writeJsonStorage(ADDRESS_STORAGE_KEY, addresses)
+}
+
+function getCustomerAddressesLocal(customerId: number) {
+  return readAddressBook().filter((item) => Number(item.customerId) === Number(customerId))
+}
+
+function saveCustomerAddressLocal(payload: CustomerAddressPayload, id?: number) {
+  const addresses = readAddressBook()
+  const existingIndex = id ? addresses.findIndex((item) => item.id === id) : -1
+  const nextId = id || (addresses.length ? Math.max(...addresses.map((item) => item.id)) + 1 : 1)
+
+  const address: CustomerAddress = {
+    id: nextId,
+    customerId: payload.customerId,
+    receiverName: payload.receiverName.trim(),
+    receiverPhone: payload.receiverPhone.trim(),
+    province: payload.province.trim(),
+    district: payload.district.trim(),
+    ward: payload.ward.trim(),
+    detailAddress: payload.detailAddress.trim(),
+    isDefault: payload.isDefault ?? true,
+  }
+
+  const normalized = addresses.filter((item) => item.customerId !== payload.customerId || item.id === address.id)
+    .map((item) => ({ ...item, isDefault: address.isDefault ? false : item.isDefault }))
+
+  if (existingIndex >= 0) {
+    const others = normalized.filter((item) => item.id !== address.id)
+    writeAddressBook([...others, address])
+  } else {
+    writeAddressBook([...normalized, address])
+  }
+
+  return address
+}
+
+function formatAddress(address?: CustomerAddress | null) {
+  if (!address) return ''
+  return [address.detailAddress, address.ward, address.district, address.province].filter(Boolean).join(', ')
+}
+
+function readOrders() {
+  return readJsonStorage<OrderResponse[]>(ORDER_STORAGE_KEY, [])
+}
+
+function writeOrders(orders: OrderResponse[]) {
+  writeJsonStorage(ORDER_STORAGE_KEY, orders)
+}
+
+function readReturns() {
+  return readJsonStorage<ReturnResponse[]>(RETURN_STORAGE_KEY, [])
+}
+
+function writeReturns(returns: ReturnResponse[]) {
+  writeJsonStorage(RETURN_STORAGE_KEY, returns)
+}
+
+function saveLastOrder(order: OrderResponse) {
+  writeJsonStorage(LAST_ORDER_STORAGE_KEY, order)
+}
+
+function checkoutCartLocal(payload: CheckoutOrderRequest) {
+  const cart = buildCartResponse(readCartLines())
+  const items = cart.items || []
+  if (!items.length) {
+    throw new Error('Không thể checkout vì giỏ hàng đang trống')
+  }
+
+  const customerId = Number(payload.customerId)
+  const addresses = getCustomerAddressesLocal(customerId)
+  const address = payload.addressId
+    ? addresses.find((item) => item.id === Number(payload.addressId))
+    : addresses.find((item) => item.isDefault) || addresses[0]
+
+  if (!address) {
+    throw new Error('Bạn cần thêm địa chỉ nhận hàng trước khi đặt đơn')
+  }
+
+  const subtotal = items.reduce((sum, item) => sum + toNumber(item.lineTotal), 0)
+  const shippingFee = toNumber(payload.shippingFee)
+  const discountAmount = toNumber(payload.discountAmount)
+  const total = subtotal + shippingFee - discountAmount
+
+  const orders = readOrders()
+  const nextId = orders.length ? Math.max(...orders.map((item) => Number(item.id) || 0)) + 1 : 1
+
+  const order: OrderResponse = {
+    id: nextId,
+    code: `ORD${Date.now().toString().slice(-8)}`,
+    customerId,
+    customerName: typeof window !== 'undefined' ? window.localStorage.getItem('displayName') || 'Khách hàng' : 'Khách hàng',
+    status: 'MOI',
+    paymentMethod: payload.paymentMethod || 'COD',
+    paymentStatus: 'UNPAID',
+    channel: 'ONLINE',
+    receiverName: address.receiverName,
+    receiverPhone: address.receiverPhone,
+    shippingAddress: formatAddress(address),
+    note: payload.note || '',
+    subtotal,
+    shippingFee,
+    discountAmount,
+    total,
+    orderDate: new Date().toISOString(),
+    items: items.map((item) => ({
+      itemId: item.itemId,
+      productId: item.productId,
+      variantId: item.variantId,
+      sku: item.sku,
+      productName: item.productName,
+      imageUrl: item.imageUrl,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: item.lineTotal,
+    })),
+  }
+
+  writeOrders([order, ...orders])
+  writeCartLines([])
+  dispatchCartUpdated({ cartId: cart.cartId, customerId, totalAmount: 0, items: [] })
+  saveLastOrder(order)
+  return delay(order)
+}
 
 export function resolveImageUrl(url?: string | null) {
   if (!url) return ''
@@ -173,7 +354,6 @@ export function resolveImageUrl(url?: string | null) {
 
   return trimmed
 }
-
 
 export async function getPublicCategories() {
   try {
@@ -242,11 +422,48 @@ export async function getPublicProductDetail(id: number | string) {
   }
 }
 
-export async function getCart(_customerId?: number | string) {
-  return delay(buildCartResponse(readCartLines()))
+export async function getCart(customerId?: number | string) {
+  if (customerId === undefined || customerId === null || customerId === '') {
+    const cart = buildCartResponse(readCartLines())
+    dispatchCartUpdated(cart)
+    return delay(cart)
+  }
+
+  try {
+    const cart = await apiRequest<CartResponse>(`/api/carts?customerId=${customerId}`)
+    dispatchCartUpdated(cart)
+    return cart
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  const cart = buildCartResponse(readCartLines())
+  dispatchCartUpdated(cart)
+  return delay(cart)
 }
 
 export async function addCartItem(payload: { customerId?: number | string; variantId: number; quantity: number }) {
+  try {
+    if (payload.customerId !== undefined && payload.customerId !== null && !hasMockSession()) {
+      const cart = await apiRequest<CartResponse>('/api/carts/items', {
+        method: 'POST',
+        body: {
+          customerId: Number(payload.customerId),
+          variantId: payload.variantId,
+          quantity: payload.quantity,
+        },
+      })
+      dispatchCartUpdated(cart)
+      return cart
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
   const match = findVariantById(payload.variantId)
   if (!match) throw new Error('Biến thể sản phẩm không tồn tại')
 
@@ -268,13 +485,34 @@ export async function addCartItem(payload: { customerId?: number | string; varia
   }
 
   writeCartLines(lines)
-  return delay(buildCartResponse(lines))
+  const cart = buildCartResponse(lines)
+  dispatchCartUpdated(cart)
+  return delay(cart)
 }
 
 export async function updateCartItem(
   itemId: number,
   payload: { customerId?: number | string; variantId: number; quantity: number },
 ) {
+  try {
+    if (payload.customerId !== undefined && payload.customerId !== null && !hasMockSession()) {
+      const cart = await apiRequest<CartResponse>(`/api/carts/items/${itemId}`, {
+        method: 'PUT',
+        body: {
+          customerId: Number(payload.customerId),
+          variantId: payload.variantId,
+          quantity: payload.quantity,
+        },
+      })
+      dispatchCartUpdated(cart)
+      return cart
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
   const lines = readCartLines()
   const target = lines.find((item) => item.itemId === itemId)
   const match = findVariantById(payload.variantId)
@@ -283,18 +521,230 @@ export async function updateCartItem(
 
   target.quantity = Math.max(1, Math.min(toNumber(match.variant.stockQuantity), toNumber(payload.quantity)))
   writeCartLines(lines)
-  return delay(buildCartResponse(lines))
+  const cart = buildCartResponse(lines)
+  dispatchCartUpdated(cart)
+  return delay(cart)
 }
 
 export async function removeCartItem(itemId: number) {
+  try {
+    if (!hasMockSession()) {
+      const cart = await apiRequest<CartResponse>(`/api/carts/items/${itemId}`, {
+        method: 'DELETE',
+      })
+      dispatchCartUpdated(cart)
+      return cart
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
   const lines = readCartLines().filter((item) => item.itemId !== itemId)
   writeCartLines(lines)
-  return delay(buildCartResponse(lines))
+  const cart = buildCartResponse(lines)
+  dispatchCartUpdated(cart)
+  return delay(cart)
 }
 
-export async function clearCart(_customerId?: number | string) {
+export async function clearCart(customerId?: number | string) {
+  try {
+    if (customerId !== undefined && customerId !== null && !hasMockSession()) {
+      const cart = await apiRequest<CartResponse>(`/api/carts/clear?customerId=${customerId}`, {
+        method: 'DELETE',
+      })
+      dispatchCartUpdated(cart)
+      return cart
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
   writeCartLines([])
-  return delay(buildCartResponse([]))
+  const cart = buildCartResponse([])
+  dispatchCartUpdated(cart)
+  return delay(cart)
+}
+
+export async function getCustomerAddresses(customerId: number) {
+  try {
+    if (!hasMockSession()) {
+      return await apiRequest<CustomerAddress[]>(`/api/customer-addresses?customerId=${customerId}`)
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(getCustomerAddressesLocal(customerId).sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)) || b.id - a.id))
+}
+
+export async function createCustomerAddress(payload: CustomerAddressPayload) {
+  try {
+    if (!hasMockSession()) {
+      return await apiRequest<CustomerAddress>('/api/customer-addresses', {
+        method: 'POST',
+        body: payload,
+      })
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(saveCustomerAddressLocal(payload))
+}
+
+export async function updateCustomerAddress(id: number, payload: CustomerAddressPayload) {
+  try {
+    if (!hasMockSession()) {
+      return await apiRequest<CustomerAddress>(`/api/customer-addresses/${id}`, {
+        method: 'PUT',
+        body: payload,
+      })
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(saveCustomerAddressLocal(payload, id))
+}
+
+export async function checkoutCart(payload: CheckoutOrderRequest) {
+  try {
+    if (!hasMockSession()) {
+      const order = await apiRequest<OrderResponse>('/api/orders/checkout', {
+        method: 'POST',
+        body: payload,
+      })
+      saveLastOrder(order)
+      dispatchCartUpdated({ customerId: payload.customerId, totalAmount: 0, items: [] })
+      return order
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return checkoutCartLocal(payload)
+}
+
+export async function getCustomerOrders(customerId: number) {
+  try {
+    if (!hasMockSession()) {
+      const orders = await apiRequest<OrderResponse[]>(`/api/orders?customerId=${customerId}`)
+      return [...orders].sort((a, b) => new Date(String(b.orderDate || 0)).getTime() - new Date(String(a.orderDate || 0)).getTime())
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(
+    readOrders()
+      .filter((item) => Number(item.customerId) === Number(customerId))
+      .sort((a, b) => new Date(String(b.orderDate || 0)).getTime() - new Date(String(a.orderDate || 0)).getTime()),
+  )
+}
+
+export async function getOrderDetail(orderId: number) {
+  try {
+    if (!hasMockSession()) {
+      return await apiRequest<OrderResponse>(`/api/orders/${orderId}`)
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  const order = readOrders().find((item) => Number(item.id) === Number(orderId))
+  if (!order) {
+    throw new Error('Không tìm thấy đơn hàng')
+  }
+  return delay(order)
+}
+
+export async function cancelCustomerOrder(orderId: number) {
+  try {
+    if (!hasMockSession()) {
+      await apiRequest<string>(`/api/orders/${orderId}`, { method: 'DELETE' })
+      return await getOrderDetail(orderId)
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  const orders = readOrders()
+  const index = orders.findIndex((item) => Number(item.id) === Number(orderId))
+  if (index < 0) throw new Error('Không tìm thấy đơn hàng')
+
+  const current = orders[index]
+  if (current.status === 'HUY') throw new Error('Đơn hàng đã hủy trước đó')
+  if (current.status === 'DANG_GIAO' || current.status === 'HOAN_TAT' || current.status === 'TRA_HANG') {
+    throw new Error('Không thể hủy đơn ở trạng thái hiện tại')
+  }
+
+  orders[index] = { ...current, status: 'HUY' }
+  writeOrders(orders)
+  return delay(orders[index])
+}
+
+export async function createOrderReturn(orderId: number, payload: ReturnRequest) {
+  try {
+    if (!hasMockSession()) {
+      const created = await apiRequest<ReturnResponse>(`/api/returns/order/${orderId}`, {
+        method: 'POST',
+        body: payload,
+      })
+      return created
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  const orders = readOrders()
+  const index = orders.findIndex((item) => Number(item.id) === Number(orderId))
+  if (index < 0) throw new Error('Không tìm thấy đơn hàng')
+
+  const current = orders[index]
+  if (current.status === 'HUY') throw new Error('Đơn đã hủy, không thể trả hàng')
+  if (current.status === 'TRA_HANG') throw new Error('Đơn hàng đã được yêu cầu trả hàng trước đó')
+  if (current.status !== 'HOAN_TAT') throw new Error('Chỉ hỗ trợ trả hàng khi đơn đã hoàn tất')
+
+  const refundTotal = toNumber(current.total)
+  const returns = readReturns()
+  const nextId = returns.length ? Math.max(...returns.map((item) => Number(item.id) || 0)) + 1 : 1
+  const created: ReturnResponse = {
+    id: nextId,
+    orderId,
+    reason: payload.reason.trim(),
+    note: payload.note?.trim() || '',
+    refundTotal,
+    returnDate: new Date().toISOString(),
+  }
+
+  writeReturns([created, ...returns])
+  orders[index] = { ...current, status: 'TRA_HANG' }
+  writeOrders(orders)
+  return delay(created)
+}
+
+export function getLastOrder() {
+  return readJsonStorage<OrderResponse | null>(LAST_ORDER_STORAGE_KEY, null)
 }
 
 export function getFeaturedProducts(limit = 4) {

@@ -90,45 +90,20 @@ async function handleLogin() {
 <template>
   <div class="min-h-screen bg-[linear-gradient(135deg,#f8fafc_0%,#eff6ff_45%,#ffffff_100%)] px-4 py-10">
     <div class="mx-auto grid max-w-6xl overflow-hidden rounded-[32px] bg-white shadow-2xl shadow-slate-200/70 lg:grid-cols-[1.05fr_0.95fr]">
-      <section class="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <div>
-          <p class="text-sm uppercase tracking-[0.35em] text-slate-300">GoalStore</p>
-          <h1 class="mt-6 max-w-md text-5xl font-semibold leading-tight">
-            Đăng nhập hệ thống quản lý.
-          </h1>
-          <p class="mt-6 max-w-lg text-base leading-8 text-slate-300">
-            Dùng chung một form đăng nhập. Hệ thống sẽ tự nhận diện tài khoản và chuyển đúng frontend.
-          </p>
-        </div>
-
-        <div class="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200">
-          <div>
-            <p class="font-semibold text-white">Tài khoản nội bộ</p>
-            <p class="mt-1 text-slate-300">
-              ADMIN, SALES, INVENTORY sẽ vào đúng khu vực quản trị tương ứng.
-            </p>
-          </div>
-          <div>
-            <p class="font-semibold text-white">Tài khoản khách hàng</p>
-            <p class="mt-1 text-slate-300">
-              CUSTOMER sẽ được chuyển sang frontend bán hàng online sau khi đăng nhập thành công.
-            </p>
-          </div>
-          <div>
-            <p class="font-semibold text-white">Tách riêng 2 FE</p>
-            <p class="mt-1 text-slate-300">
-              Quản trị và bán online vẫn tách project, nhưng luồng đăng nhập đã nối với nhau.
-            </p>
-          </div>
-        </div>
+      <section class="relative hidden min-h-[760px] overflow-hidden bg-slate-950 lg:block">
+        <img
+          src="/legacy/img/anhlogin.jpg"
+          alt="GoalStore banner"
+          class="absolute inset-0 h-full w-full object-cover"
+        />
       </section>
 
       <section class="p-6 sm:p-8 lg:p-10">
         <div class="mx-auto max-w-xl">
-          <p class="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Auth Center</p>
-          <h2 class="mt-3 text-3xl font-semibold text-slate-950">Đăng nhập GoalStore</h2>
+          <p class="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">GOALSTORE</p>
+          <h2 class="mt-3 text-3xl font-semibold text-slate-950">Đăng nhập</h2>
           <p class="mt-3 text-sm leading-6 text-slate-500">
-            Nhập email và mật khẩu. Hệ thống sẽ tự chuyển ADMIN / SALES / INVENTORY / CUSTOMER về đúng frontend.
+            Đăng nhập để có trải nghiệm tốt hơn
           </p>
 
           <form class="mt-8 space-y-4" @submit.prevent="handleLogin">
