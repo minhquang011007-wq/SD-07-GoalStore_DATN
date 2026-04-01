@@ -23,7 +23,6 @@ const router = createRouter({
       children: [
         { path: "", redirect: "/login" },
 
-        // ===== Home theo role =====
         {
           path: "admin",
           component: () => import("@/modules/system/dashboard/views/AdminHomeView.vue"),
@@ -40,14 +39,12 @@ const router = createRouter({
           meta: { roles: ["INVENTORY"], moduleOwner: "system" },
         },
 
-        // ===== Product module =====
         {
           path: "inventory/products",
           component: () => import("@/modules/product/views/ProductHomeView.vue"),
           meta: { roles: ["ADMIN", "INVENTORY"], moduleOwner: "product" },
         },
 
-        // ===== Order + Sales module =====
         {
           path: "admin/orders",
           component: () => import("@/modules/order/views/OrderBillingView.vue"),
@@ -64,26 +61,33 @@ const router = createRouter({
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "sales" },
         },
 
-        // ===== Customer module =====
         {
           path: "sales/customers",
-          component: () => import("@/modules/customer/views/ContactsView.vue"),
+          component: () => import("@/modules/customer/views/CustomerListView.vue"),
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
         },
         {
-          path: "sales/companies",
-          component: () => import("@/modules/customer/views/CompaniesView.vue"),
+          path: "sales/customers/detail",
+          component: () => import("@/modules/customer/views/CustomerDetailView.vue"),
+          meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
+        },
+        {
+          path: "sales/customers/spending",
+          component: () => import("@/modules/customer/views/CustomerSpendingView.vue"),
+          meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
+        },
+        {
+          path: "sales/customers/inactive",
+          component: () => import("@/modules/customer/views/InactiveCustomerView.vue"),
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
         },
 
-        // ===== User module =====
         {
           path: "admin/settings",
           component: () => import("@/modules/user/views/SettingsView.vue"),
           meta: { roles: ["ADMIN"], moduleOwner: "user" },
         },
 
-        // ===== Audit module =====
         {
           path: "admin/reports",
           component: () => import("@/modules/audit/views/ReportsView.vue"),
@@ -115,7 +119,7 @@ router.beforeEach((to, _from, next) => {
     return next("/login")
   }
 
-  const allowedRoles = (to.meta?.roles as Role[] | undefined)
+  const allowedRoles = to.meta?.roles as Role[] | undefined
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     if (role && HOME_BY_ROLE[role]) return next(HOME_BY_ROLE[role])
     return next("/login")

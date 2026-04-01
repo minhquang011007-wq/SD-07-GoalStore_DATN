@@ -12,6 +12,8 @@ public interface LoyaltyService {
 
     List<LoyaltyHistoryResponse> getHistory(Integer customerId);
 
+    List<LoyaltyHistoryResponse> filterHistory(LoyaltyHistoryFilterRequest request);
+
     List<LoyaltyCustomerResponse> getAllLoyaltyCustomers();
 
     List<VipProgramResponse> getVipPrograms();
@@ -26,6 +28,17 @@ public interface LoyaltyService {
 
     void createVipProgram(VipProgramRequest request);
 
+    VipProgramResponse updateVipProgram(Integer id, VipProgramRequest request);
+
     void createRewardRule(RewardRuleRequest request);
 
+    RewardRuleResponse updateRewardRule(Integer id, RewardRuleRequest request);
+
+    RedeemRewardResponse redeemReward(RedeemRewardRequest request);
+
+    BirthdayNotificationResponse createBirthdayNotification(BirthdayNotificationRequest request);
+
+    List<BirthdayNotificationResponse> getTodayBirthdayCustomers();
+
+    List<BirthdayNotificationResponse> getCurrentMonthBirthdayCustomers();
 }

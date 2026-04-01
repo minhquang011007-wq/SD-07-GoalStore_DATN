@@ -1,5 +1,6 @@
 package com.example.demo.customer.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class InactiveCustomerResponse {
@@ -8,6 +9,9 @@ public class InactiveCustomerResponse {
     private String ten;
     private String email;
     private String sdt;
+    private String loaiKhach;
+    private Integer tongDonHang;
+    private BigDecimal tongChiTieu;
     private LocalDateTime lastOrderDate;
     private Long soNgayKhongMua;
 
@@ -44,6 +48,30 @@ public class InactiveCustomerResponse {
 
     public void setSdt(String sdt) {
         this.sdt = sdt;
+    }
+
+    public String getLoaiKhach() {
+        return loaiKhach;
+    }
+
+    public void setLoaiKhach(String loaiKhach) {
+        this.loaiKhach = loaiKhach;
+    }
+
+    public Integer getTongDonHang() {
+        return tongDonHang;
+    }
+
+    public void setTongDonHang(Integer tongDonHang) {
+        this.tongDonHang = tongDonHang;
+    }
+
+    public BigDecimal getTongChiTieu() {
+        return tongChiTieu;
+    }
+
+    public void setTongChiTieu(BigDecimal tongChiTieu) {
+        this.tongChiTieu = tongChiTieu;
     }
 
     public LocalDateTime getLastOrderDate() {

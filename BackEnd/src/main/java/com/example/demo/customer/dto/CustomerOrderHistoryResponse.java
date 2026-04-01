@@ -2,6 +2,7 @@ package com.example.demo.customer.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class CustomerOrderHistoryResponse {
 
@@ -11,6 +12,8 @@ public class CustomerOrderHistoryResponse {
     private String paymentMethod;
     private String channel;
     private BigDecimal total;
+    private Integer pointsEarned;
+    private List<CustomerOrderItemResponse> items;
 
     public CustomerOrderHistoryResponse() {
     }
@@ -61,5 +64,21 @@ public class CustomerOrderHistoryResponse {
 
     public void setTotal(BigDecimal total) {
         this.total = total;
+    }
+
+    public Integer getPointsEarned() {
+        return pointsEarned;
+    }
+
+    public void setPointsEarned(Integer pointsEarned) {
+        this.pointsEarned = pointsEarned;
+    }
+
+    public List<CustomerOrderItemResponse> getItems() {
+        return items;
+    }
+
+    public void setItems(List<CustomerOrderItemResponse> items) {
+        this.items = items;
     }
 }

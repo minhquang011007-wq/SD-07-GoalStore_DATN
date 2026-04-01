@@ -22,6 +22,25 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.getAllCustomers());
     }
 
+    @GetMapping("/stats")
+    public ResponseEntity<CustomerStatsResponse> getCustomerStats() {
+        return ResponseEntity.ok(customerService.getCustomerStats());
+    }
+
+    @GetMapping("/activity")
+    public ResponseEntity<List<CustomerActivityResponse>> getCustomerActivity(
+            @RequestParam(defaultValue = "30") Integer days
+    ) {
+        return ResponseEntity.ok(customerService.getCustomerActivity(days));
+    }
+
+    @PostMapping("/advanced-filter")
+    public ResponseEntity<List<CustomerResponse>> advancedFilter(
+            @RequestBody CustomerFilterRequest request
+    ) {
+        return ResponseEntity.ok(customerService.filterCustomers(request));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CustomerResponse> getCustomerById(@PathVariable Integer id) {
         return ResponseEntity.ok(customerService.getCustomerById(id));
@@ -40,8 +59,14 @@ public class CustomerController {
     @PutMapping("/{id}")
     public ResponseEntity<CustomerResponse> updateCustomer(
             @PathVariable Integer id,
-            @RequestBody CustomerRequest request) {
+            @RequestBody CustomerRequest request
+    ) {
         return ResponseEntity.ok(customerService.updateCustomer(id, request));
+    }
+
+    @PutMapping("/{id}/assign-vip")
+    public ResponseEntity<CustomerResponse> assignVip(@PathVariable Integer id) {
+        return ResponseEntity.ok(customerService.assignVip(id));
     }
 
     @DeleteMapping("/{id}")
@@ -85,9 +110,17 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.getTopCustomersBySpending());
     }
 
-    @GetMapping("/inactive")
-    public ResponseEntity<List<InactiveCustomerResponse>> getInactiveCustomers(@RequestParam Long days) {
-        return ResponseEntity.ok(customerService.getInactiveCustomers(days));
+    @GetMapping("/top-loyal")
+    public ResponseEntity<List<TopLoyalCustomerResponse>> getTopLoyalCustomers(
+            @RequestParam(defaultValue = "10") Integer limit
+    ) {
+        return ResponseEntity.ok(customerService.getTopCustomersByPoints(limit));
     }
 
+    @GetMapping("/inactive")
+    public ResponseEntity<List<InactiveCustomerResponse>> getInactiveCustomers(
+            @RequestParam(defaultValue = "30") Long days
+    ) {
+        return ResponseEntity.ok(customerService.getInactiveCustomers(days));
+    }
 }

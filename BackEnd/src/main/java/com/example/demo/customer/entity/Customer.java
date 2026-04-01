@@ -1,6 +1,7 @@
 package com.example.demo.customer.entity;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -38,7 +39,7 @@ public class Customer {
 
     @PrePersist
     public void prePersist() {
-        if (this.loaiKhach == null) {
+        if (this.loaiKhach == null || this.loaiKhach.isBlank()) {
             this.loaiKhach = "THUONG";
         }
         if (this.diemTichLuy == null) {
