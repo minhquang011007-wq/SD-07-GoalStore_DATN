@@ -130,10 +130,11 @@ export type CustomerAddressPayload = {
 export type CheckoutOrderRequest = {
   customerId: number
   addressId?: number | null
-  paymentMethod?: 'COD' | 'BANKING' | 'MOMO' | 'VNPAY' | string
+  paymentMethod?: 'COD' | 'QR' | 'BANKING' | 'MOMO' | 'VNPAY' | string
   note?: string
   shippingFee?: number
   discountAmount?: number
+  selectedItemIds?: number[]
 }
 
 export type OrderItemSummary = {

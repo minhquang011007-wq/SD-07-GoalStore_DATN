@@ -29,6 +29,7 @@ const ADDRESS_STORAGE_KEY = 'goalstore_customer_addresses'
 const ORDER_STORAGE_KEY = 'goalstore_customer_orders'
 const RETURN_STORAGE_KEY = 'goalstore_order_returns'
 const LAST_ORDER_STORAGE_KEY = 'goalstore_last_order'
+const CART_SELECTED_STORAGE_KEY = 'goalstore_cart_selected_items'
 
 type LocalCartLine = {
   itemId: number
@@ -80,6 +81,51 @@ function readCartLines(): LocalCartLine[] {
 function writeCartLines(lines: LocalCartLine[]) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines))
+}
+
+
+function readSelectedCartItemIdsRaw() {
+  if (typeof window === 'undefined') return null as number[] | null
+  try {
+    const raw = window.localStorage.getItem(CART_SELECTED_STORAGE_KEY)
+    if (raw == null) return null
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.map((value) => Number(value)).filter((value) => Number.isFinite(value)) : []
+  } catch {
+    return []
+  }
+}
+
+function writeSelectedCartItemIds(ids: number[]) {
+  if (typeof window === 'undefined') return
+  const normalized = Array.from(new Set((ids || []).map((value) => Number(value)).filter((value) => Number.isFinite(value))))
+  window.localStorage.setItem(CART_SELECTED_STORAGE_KEY, JSON.stringify(normalized))
+}
+
+function syncSelectedCartItemIds(items?: Array<{ itemId?: number | null }> | null, autoSelectAllWhenUnset = false) {
+  const availableIds = (items || [])
+    .map((item) => Number(item?.itemId))
+    .filter((value) => Number.isFinite(value))
+
+  const stored = readSelectedCartItemIdsRaw()
+  let next: number[]
+
+  if (stored === null) {
+    next = autoSelectAllWhenUnset ? [...availableIds] : []
+  } else {
+    next = stored.filter((value) => availableIds.includes(value))
+  }
+
+  writeSelectedCartItemIds(next)
+  return next
+}
+
+export function getSelectedCartItemIds() {
+  return readSelectedCartItemIdsRaw() || []
+}
+
+export function setSelectedCartItemIds(ids: number[]) {
+  writeSelectedCartItemIds(ids)
 }
 
 function readJsonStorage<T>(key: string, fallback: T): T {
@@ -266,9 +312,16 @@ function saveLastOrder(order: OrderResponse) {
 
 function checkoutCartLocal(payload: CheckoutOrderRequest) {
   const cart = buildCartResponse(readCartLines())
-  const items = cart.items || []
+  const allItems = cart.items || []
+  const selectedIds = (payload.selectedItemIds || [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+  const items = selectedIds.length
+    ? allItems.filter((item) => selectedIds.includes(Number(item.itemId)))
+    : allItems
+
   if (!items.length) {
-    throw new Error('Không thể checkout vì giỏ hàng đang trống')
+    throw new Error(selectedIds.length ? 'Bạn chưa chọn sản phẩm nào để thanh toán' : 'Không thể checkout vì giỏ hàng đang trống')
   }
 
   const customerId = Number(payload.customerId)
@@ -288,6 +341,7 @@ function checkoutCartLocal(payload: CheckoutOrderRequest) {
 
   const orders = readOrders()
   const nextId = orders.length ? Math.max(...orders.map((item) => Number(item.id) || 0)) + 1 : 1
+  const requestedPaymentMethod = String(payload.paymentMethod || 'COD').toUpperCase()
 
   const order: OrderResponse = {
     id: nextId,
@@ -295,8 +349,8 @@ function checkoutCartLocal(payload: CheckoutOrderRequest) {
     customerId,
     customerName: typeof window !== 'undefined' ? window.localStorage.getItem('displayName') || 'Khách hàng' : 'Khách hàng',
     status: 'MOI',
-    paymentMethod: payload.paymentMethod || 'COD',
-    paymentStatus: 'UNPAID',
+    paymentMethod: requestedPaymentMethod === 'QR' ? 'QR' : requestedPaymentMethod,
+    paymentStatus: requestedPaymentMethod === 'QR' ? 'PENDING' : 'UNPAID',
     channel: 'ONLINE',
     receiverName: address.receiverName,
     receiverPhone: address.receiverPhone,
@@ -322,9 +376,13 @@ function checkoutCartLocal(payload: CheckoutOrderRequest) {
     })),
   }
 
+  const remainingLines = readCartLines().filter((line) => !selectedIds.includes(Number(line.itemId)))
+
   writeOrders([order, ...orders])
-  writeCartLines([])
-  dispatchCartUpdated({ cartId: cart.cartId, customerId, totalAmount: 0, items: [] })
+  writeCartLines(remainingLines)
+  const remainingCart = buildCartResponse(remainingLines)
+  syncSelectedCartItemIds(remainingCart.items, false)
+  dispatchCartUpdated(remainingCart)
   saveLastOrder(order)
   return delay(order)
 }
@@ -425,12 +483,14 @@ export async function getPublicProductDetail(id: number | string) {
 export async function getCart(customerId?: number | string) {
   if (customerId === undefined || customerId === null || customerId === '') {
     const cart = buildCartResponse(readCartLines())
+    syncSelectedCartItemIds(cart.items, true)
     dispatchCartUpdated(cart)
     return delay(cart)
   }
 
   try {
     const cart = await apiRequest<CartResponse>(`/api/carts?customerId=${customerId}`)
+    syncSelectedCartItemIds(cart.items, true)
     dispatchCartUpdated(cart)
     return cart
   } catch (error) {
@@ -440,6 +500,7 @@ export async function getCart(customerId?: number | string) {
   }
 
   const cart = buildCartResponse(readCartLines())
+  syncSelectedCartItemIds(cart.items, true)
   dispatchCartUpdated(cart)
   return delay(cart)
 }
@@ -455,6 +516,7 @@ export async function addCartItem(payload: { customerId?: number | string; varia
           quantity: payload.quantity,
         },
       })
+      syncSelectedCartItemIds(cart.items, true)
       dispatchCartUpdated(cart)
       return cart
     }
@@ -486,6 +548,7 @@ export async function addCartItem(payload: { customerId?: number | string; varia
 
   writeCartLines(lines)
   const cart = buildCartResponse(lines)
+  syncSelectedCartItemIds(cart.items, true)
   dispatchCartUpdated(cart)
   return delay(cart)
 }
@@ -504,6 +567,7 @@ export async function updateCartItem(
           quantity: payload.quantity,
         },
       })
+      syncSelectedCartItemIds(cart.items, false)
       dispatchCartUpdated(cart)
       return cart
     }
@@ -522,6 +586,7 @@ export async function updateCartItem(
   target.quantity = Math.max(1, Math.min(toNumber(match.variant.stockQuantity), toNumber(payload.quantity)))
   writeCartLines(lines)
   const cart = buildCartResponse(lines)
+  syncSelectedCartItemIds(cart.items, false)
   dispatchCartUpdated(cart)
   return delay(cart)
 }
@@ -532,6 +597,7 @@ export async function removeCartItem(itemId: number) {
       const cart = await apiRequest<CartResponse>(`/api/carts/items/${itemId}`, {
         method: 'DELETE',
       })
+      syncSelectedCartItemIds(cart.items, false)
       dispatchCartUpdated(cart)
       return cart
     }
@@ -544,6 +610,7 @@ export async function removeCartItem(itemId: number) {
   const lines = readCartLines().filter((item) => item.itemId !== itemId)
   writeCartLines(lines)
   const cart = buildCartResponse(lines)
+  syncSelectedCartItemIds(cart.items, false)
   dispatchCartUpdated(cart)
   return delay(cart)
 }
@@ -554,6 +621,7 @@ export async function clearCart(customerId?: number | string) {
       const cart = await apiRequest<CartResponse>(`/api/carts/clear?customerId=${customerId}`, {
         method: 'DELETE',
       })
+      syncSelectedCartItemIds(cart.items, false)
       dispatchCartUpdated(cart)
       return cart
     }
@@ -565,6 +633,7 @@ export async function clearCart(customerId?: number | string) {
 
   writeCartLines([])
   const cart = buildCartResponse([])
+  syncSelectedCartItemIds(cart.items, false)
   dispatchCartUpdated(cart)
   return delay(cart)
 }
@@ -626,23 +695,24 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
         throw new Error('Không xác định được khách hàng để checkout')
       }
 
-      // Lấy giỏ hàng thật từ backend trước, không lấy localStorage
       const cart = await apiRequest<CartResponse>(`/api/carts?customerId=${customerId}`)
-      const items = cart.items || []
+      const allItems = cart.items || []
+      const selectedIds = (payload.selectedItemIds || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+      const items = selectedIds.length
+        ? allItems.filter((item) => selectedIds.includes(Number(item.itemId)))
+        : allItems
 
       if (!items.length) {
-        throw new Error('Không thể checkout vì giỏ hàng đang trống')
+        throw new Error(selectedIds.length ? 'Bạn chưa chọn sản phẩm nào để thanh toán' : 'Không thể checkout vì giỏ hàng đang trống')
       }
 
-      // Địa chỉ: ưu tiên local nếu FE đang lưu
       let addresses = getCustomerAddressesLocal(customerId)
 
-      // Nếu local không có thì lấy từ backend
       if (!addresses.length) {
         try {
-          addresses = await apiRequest<CustomerAddress[]>(
-            `/api/customer-addresses?customerId=${customerId}`
-          )
+          addresses = await apiRequest<CustomerAddress[]>(`/api/customer-addresses?customerId=${customerId}`)
         } catch {
           addresses = []
         }
@@ -661,9 +731,12 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
       const discountAmount = toNumber(payload.discountAmount)
       const total = subtotal + shippingFee - discountAmount
 
+      const requestedPaymentMethod = String(payload.paymentMethod || 'COD').toUpperCase()
+      const backendPaymentMethod = requestedPaymentMethod === 'QR' ? 'BANKING' : requestedPaymentMethod
+
       const backendPayload = {
         customerId,
-        paymentMethod: payload.paymentMethod || 'COD',
+        paymentMethod: backendPaymentMethod,
         channel: 'ONLINE',
         note: payload.note || '',
         receiverName: address.receiverName,
@@ -688,12 +761,10 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
         customerId,
         customerName:
           backendOrder?.customerName ||
-          (typeof window !== 'undefined'
-            ? window.localStorage.getItem('displayName') || 'Khách hàng'
-            : 'Khách hàng'),
+          (typeof window !== 'undefined' ? window.localStorage.getItem('displayName') || 'Khách hàng' : 'Khách hàng'),
         status: backendOrder?.status || 'MOI',
-        paymentMethod: backendOrder?.paymentMethod || payload.paymentMethod || 'COD',
-        paymentStatus: backendOrder?.paymentStatus || 'UNPAID',
+        paymentMethod: requestedPaymentMethod === 'QR' ? 'QR' : (backendOrder?.paymentMethod || requestedPaymentMethod || 'COD'),
+        paymentStatus: backendOrder?.paymentStatus || (requestedPaymentMethod === 'QR' ? 'PENDING' : 'UNPAID'),
         channel: backendOrder?.channel || 'ONLINE',
         receiverName: backendOrder?.receiverName || address.receiverName,
         receiverPhone: backendOrder?.receiverPhone || address.receiverPhone,
@@ -715,20 +786,27 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
           color: item?.color ?? null,
           quantity: Number(item?.quantity ?? 0),
           unitPrice: toNumber(item?.unitPrice),
-          lineTotal:
-            item?.lineTotal ??
-            toNumber(item?.unitPrice) * Number(item?.quantity || 0),
+          lineTotal: item?.lineTotal ?? toNumber(item?.unitPrice) * Number(item?.quantity || 0),
         })),
       }
 
       saveLastOrder(normalizedOrder)
-      writeCartLines([])
-      dispatchCartUpdated({
-        cartId: cart.cartId ?? 1,
-        customerId,
-        totalAmount: 0,
-        items: [],
-      })
+
+      try {
+        const refreshedCart = await apiRequest<CartResponse>(`/api/carts?customerId=${customerId}`)
+        syncSelectedCartItemIds(refreshedCart.items, false)
+        dispatchCartUpdated(refreshedCart)
+      } catch {
+        const remainingItems = allItems.filter((item) => !selectedIds.includes(Number(item.itemId)))
+        const fallbackCart: CartResponse = {
+          cartId: cart.cartId ?? 1,
+          customerId,
+          totalAmount: remainingItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0),
+          items: remainingItems,
+        }
+        syncSelectedCartItemIds(fallbackCart.items, false)
+        dispatchCartUpdated(fallbackCart)
+      }
 
       return normalizedOrder
     }

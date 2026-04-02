@@ -126,7 +126,7 @@
                 <div class="order-summary-box">
                   <span>Thanh toán</span>
                   <strong>{{ formatPaymentMethod(selectedOrder.paymentMethod) }}</strong>
-                  <p>Trạng thái: {{ formatPaymentStatus(selectedOrder.paymentStatus) }}</p>
+                  <p>Trạng thái: {{ formatPaymentStatus(selectedOrder.paymentStatus, selectedOrder.paymentMethod) }}</p>
                 </div>
                 <div class="order-summary-box">
                   <span>Người nhận</span>
@@ -137,6 +137,26 @@
                   <span>Địa chỉ giao hàng</span>
                   <strong>{{ selectedOrder.shippingAddress || 'Chưa có địa chỉ' }}</strong>
                   <p v-if="selectedOrder.note">Ghi chú: {{ selectedOrder.note }}</p>
+                </div>
+              </div>
+
+              <div v-if="selectedOrderQrImage" class="order-qr-box">
+                <div>
+                  <p class="orders-panel__eyebrow">Thanh toán QR</p>
+                  <h5>Quét mã để thanh toán đơn {{ selectedOrder.code || `#${selectedOrder.id}` }}</h5>
+                  <p>
+                    Nội dung chuyển khoản: <strong>{{ selectedOrderTransferContent }}</strong><br />
+                    Sau khi chuyển khoản thành công, GoalStore sẽ đối soát và cập nhật trạng thái thanh toán cho đơn hàng.
+                  </p>
+                  <ul class="order-qr-meta">
+                    <li><span>Ngân hàng</span><strong>{{ qrBankInfo.bankId }}</strong></li>
+                    <li><span>Số tài khoản</span><strong>{{ qrBankInfo.accountNo }}</strong></li>
+                    <li><span>Chủ tài khoản</span><strong>{{ qrBankInfo.accountName }}</strong></li>
+                    <li><span>Số tiền</span><strong>{{ formatCurrency(selectedOrder.total) }}</strong></li>
+                  </ul>
+                </div>
+                <div class="order-qr-box__image">
+                  <img :src="selectedOrderQrImage" alt="QR thanh toán đơn hàng" />
                 </div>
               </div>
 
@@ -233,6 +253,7 @@ import {
   getOrderDetail,
   resolveImageUrl,
 } from '@/shared/lib/shop.api'
+import { buildQrImageUrl, buildQrTransferContent, getQrBankInfo, isQrPaymentMethod } from '@/shared/lib/payment'
 import type { OrderItemSummary, OrderResponse, ReturnResponse } from '@/shared/lib/shop.types'
 
 const loading = ref(true)
@@ -303,6 +324,7 @@ function formatStatus(value?: string | null) {
 function formatPaymentMethod(value?: string | null) {
   const map: Record<string, string> = {
     COD: 'Thanh toán khi nhận hàng',
+    QR: 'Thanh toán QR ngân hàng',
     BANKING: 'Chuyển khoản',
     MOMO: 'Ví MoMo',
     VNPAY: 'VNPay',
@@ -310,13 +332,21 @@ function formatPaymentMethod(value?: string | null) {
   return value ? map[value] || value : 'Chưa xác định'
 }
 
-function formatPaymentStatus(value?: string | null) {
+function formatPaymentStatus(value?: string | null, paymentMethod?: string | null) {
+  const normalizedMethod = String(paymentMethod || '').toUpperCase()
+  const normalizedStatus = String(value || '').toUpperCase()
+
+  if (normalizedMethod === 'QR' && (normalizedStatus === 'PENDING' || normalizedStatus === 'UNPAID')) {
+    return 'Chờ khách chuyển khoản'
+  }
+
   const map: Record<string, string> = {
     UNPAID: 'Chưa thanh toán',
+    PENDING: 'Đang chờ xác nhận',
     PAID: 'Đã thanh toán',
     REFUNDED: 'Đã hoàn tiền',
   }
-  return value ? map[value] || value : 'Chưa xác định'
+  return value ? map[normalizedStatus] || value : 'Chưa xác định'
 }
 
 function variantText(item: OrderItemSummary) {
@@ -352,6 +382,15 @@ function countByStatus(status: typeof activeFilter.value) {
   if (status === 'ALL') return orders.value.length
   return orders.value.filter((item) => item.status === status).length
 }
+
+const qrBankInfo = getQrBankInfo()
+const selectedOrderQrImage = computed(() => {
+  if (!selectedOrder.value || !isQrPaymentMethod(selectedOrder.value.paymentMethod)) return ''
+  const paymentStatus = String(selectedOrder.value.paymentStatus || '').toUpperCase()
+  if (paymentStatus === 'PAID' || paymentStatus === 'REFUNDED') return ''
+  return buildQrImageUrl(selectedOrder.value)
+})
+const selectedOrderTransferContent = computed(() => buildQrTransferContent(selectedOrder.value))
 
 const filteredOrders = computed(() => {
   if (activeFilter.value === 'ALL') return orders.value
@@ -854,4 +893,53 @@ onMounted(async () => {
     text-align: left !important;
   }
 }
+.order-qr-box {
+  margin-bottom: 28px;
+  padding: 24px;
+  border: 1px solid #e6efe8;
+  background: #f7fbf8;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(220px, 280px);
+  gap: 20px;
+  align-items: center;
+}
+
+.order-qr-box__image img {
+  width: 100%;
+  max-width: 280px;
+  border: 1px solid #ececec;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.order-qr-meta {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.order-qr-meta li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #d9e4db;
+}
+
+.order-qr-meta li span {
+  color: #6b7280;
+}
+
+@media (max-width: 767px) {
+  .order-qr-box {
+    grid-template-columns: 1fr;
+  }
+
+  .order-qr-box__image {
+    text-align: center;
+  }
+}
+
 </style>

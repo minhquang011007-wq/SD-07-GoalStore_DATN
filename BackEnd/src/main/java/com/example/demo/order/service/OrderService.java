@@ -20,6 +20,8 @@ public interface OrderService {
 
     OrderDetailResponse updateStatus(Integer id, UpdateOrderStatusRequest request);
 
+    OrderDetailResponse updatePaymentStatus(Integer id, UpdateOrderPaymentStatusRequest request);
+
     OrderDetailResponse cancelOrder(Integer id);
 
     OrderDetailResponse returnOrder(Integer id, ReturnOrderRequest request);

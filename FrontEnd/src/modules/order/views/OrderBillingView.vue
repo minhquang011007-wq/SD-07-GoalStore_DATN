@@ -20,6 +20,7 @@ import {
   fetchOrders,
   fetchReturns,
   updateOrderItem,
+  updateOrderPaymentStatus,
   updateOrderStatus,
 } from "./order.api"
 import type { OrderDetailResponse, OrderResponse, OrderStatus, ReturnResponse } from "./types"
@@ -124,6 +125,17 @@ const canCreateReturn = computed(() => {
   return status === "HOAN_TAT" || status === "DANG_GIAO"
 })
 
+const canConfirmQrPayment = computed(() => {
+  const order = selectedOrder.value
+  if (!order) return false
+
+  const paymentMethod = String(order.paymentMethod || '').toUpperCase()
+  const paymentStatus = String(order.paymentStatus || '').toUpperCase()
+  const orderStatus = String(order.status || '').toUpperCase()
+
+  return paymentMethod === 'BANKING' && paymentStatus !== 'PAID' && orderStatus !== 'HUY' && orderStatus !== 'TRA_HANG'
+})
+
 watch(selectedOrder, (order) => {
   detailState.status = getNextStatus(order?.status) || ""
   detailState.returnReason = ""
@@ -196,6 +208,43 @@ function labelStatus(status: string | null | undefined) {
       return "Trả hàng"
     default:
       return status || "--"
+  }
+}
+
+function labelPaymentMethod(method: string | null | undefined) {
+  switch (String(method || '').toUpperCase()) {
+    case 'COD':
+      return 'Thanh toán khi nhận hàng'
+    case 'BANKING':
+      return 'QR ngân hàng'
+    case 'MOMO':
+      return 'MoMo'
+    case 'VNPAY':
+      return 'VNPay'
+    default:
+      return method || '--'
+  }
+}
+
+function labelPaymentStatus(status: string | null | undefined) {
+  switch (String(status || '').toUpperCase()) {
+    case 'PAID':
+      return 'Đã thanh toán'
+    case 'UNPAID':
+      return 'Chưa thanh toán'
+    default:
+      return status || '--'
+  }
+}
+
+function paymentStatusClass(status: string | null | undefined) {
+  switch (String(status || '').toUpperCase()) {
+    case 'PAID':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    case 'UNPAID':
+      return 'bg-amber-50 text-amber-700 border-amber-200'
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200'
   }
 }
 
@@ -323,6 +372,33 @@ async function handleUpdateStatus() {
     await Promise.all([loadOrderDetail(updated.id), loadReturns()])
   } catch (error: any) {
     setMessage("error", error?.response?.data?.message || error?.message || "Cập nhật trạng thái thất bại")
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function handleConfirmQrPayment() {
+  if (!selectedOrder.value) return
+
+  const confirmed = window.confirm(`Xác nhận đã nhận tiền cho đơn ${selectedOrder.value.code}?`)
+  if (!confirmed) return
+
+  actionLoading.value = true
+  clearMessage()
+
+  try {
+    const updated = await updateOrderPaymentStatus(selectedOrder.value.id, 'PAID')
+    selectedOrder.value = updated
+
+    const index = orders.value.findIndex((item) => item.id === updated.id)
+    if (index >= 0) {
+      orders.value[index] = { ...orders.value[index], ...updated, code: updated.code || `#${updated.id}` }
+    }
+
+    setMessage('success', 'Đã xác nhận thanh toán QR cho đơn hàng')
+    await loadOrderDetail(updated.id)
+  } catch (error: any) {
+    setMessage('error', error?.response?.data?.message || error?.message || 'Xác nhận thanh toán thất bại')
   } finally {
     actionLoading.value = false
   }
@@ -592,8 +668,8 @@ onMounted(async () => {
                     </span>
                   </td>
                   <td class="px-4 py-3">
-                    <div>{{ order.paymentMethod || '--' }}</div>
-                    <div class="text-xs text-slate-500">{{ order.paymentStatus || '--' }}</div>
+                    <div>{{ labelPaymentMethod(order.paymentMethod) }}</div>
+                    <div class="text-xs text-slate-500">{{ labelPaymentStatus(order.paymentStatus) }}</div>
                   </td>
                   <td class="px-4 py-3 font-medium">{{ formatCurrency(order.total) }}</td>
                   <td class="px-4 py-3 text-slate-600">{{ formatDate(order.orderDate) }}</td>
@@ -646,6 +722,47 @@ onMounted(async () => {
               <div class="text-xs text-slate-500">Địa chỉ giao hàng</div>
               <div class="mt-1 text-sm text-slate-800">{{ selectedOrder.shippingAddress || '--' }}</div>
               <div v-if="selectedOrder.note" class="mt-2 text-xs text-slate-500">Ghi chú: {{ selectedOrder.note }}</div>
+            </div>
+
+            <div class="rounded-lg border p-3 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-slate-900">Thanh toán đơn hàng</div>
+                  <div class="text-xs text-slate-500">Admin xác nhận khi khách đã chuyển khoản QR thành công.</div>
+                </div>
+                <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="paymentStatusClass(selectedOrder.paymentStatus)">
+                  {{ labelPaymentStatus(selectedOrder.paymentStatus) }}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="rounded-md border p-3">
+                  <div class="text-xs text-slate-500">Phương thức</div>
+                  <div class="mt-1 font-semibold text-slate-900">{{ labelPaymentMethod(selectedOrder.paymentMethod) }}</div>
+                </div>
+                <div class="rounded-md border p-3">
+                  <div class="text-xs text-slate-500">Trạng thái thanh toán</div>
+                  <div class="mt-1 font-semibold text-slate-900">{{ labelPaymentStatus(selectedOrder.paymentStatus) }}</div>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-if="canConfirmQrPayment"
+                  class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="actionLoading"
+                  @click="handleConfirmQrPayment"
+                >
+                  Xác nhận đã thanh toán QR
+                </button>
+
+                <div
+                  v-else-if="String(selectedOrder.paymentMethod || '').toUpperCase() === 'BANKING'"
+                  class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+                >
+                  Đơn QR này đã được xác nhận thanh toán.
+                </div>
+              </div>
             </div>
 
             <div class="rounded-lg border p-3 space-y-3">

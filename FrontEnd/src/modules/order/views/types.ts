@@ -2,6 +2,7 @@
 export type OrderStatus = "MOI" | "DANG_XU_LY" | "DANG_GIAO" | "HOAN_TAT" | "HUY" | "TRA_HANG"
 export type OrderChannel = "ONLINE" | "OFFLINE"
 export type PaymentMethod = "COD" | "BANKING" | "MOMO" | "VNPAY"
+export type PaymentStatus = "UNPAID" | "PAID" | string
 
 export type OrderItemResponse = {
   itemId: number
@@ -31,7 +32,7 @@ export type OrderResponse = {
   customerName: string | null
   status: OrderStatus | string
   paymentMethod: PaymentMethod | string | null
-  paymentStatus: string | null
+  paymentStatus: PaymentStatus | null
   channel: OrderChannel | string | null
   receiverName: string | null
   receiverPhone: string | null

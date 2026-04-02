@@ -57,6 +57,14 @@ public class OrderController {
         return ResponseEntity.ok(orderService.updateStatus(id, request));
     }
 
+    @PutMapping("/{id}/payment-status")
+    public ResponseEntity<OrderDetailResponse> updatePaymentStatus(
+            @PathVariable Integer id,
+            @RequestBody UpdateOrderPaymentStatusRequest request
+    ) {
+        return ResponseEntity.ok(orderService.updatePaymentStatus(id, request));
+    }
+
     @PutMapping("/{id}/cancel")
     public ResponseEntity<OrderDetailResponse> cancelOrder(@PathVariable Integer id) {
         return ResponseEntity.ok(orderService.cancelOrder(id));

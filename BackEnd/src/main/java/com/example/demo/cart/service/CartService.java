@@ -79,17 +79,18 @@ public class CartService {
     public CartResponse removeItem(Integer itemId) {
         CartItem item = cartItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy cart item"));
-        Cart cart = item.getCart();
+        Integer customerId = item.getCart().getCustomer().getId();
         cartItemRepository.delete(item);
-        return toResponse(cart);
+        cartItemRepository.flush();
+        return getCart(customerId);
     }
 
     @Transactional
     public CartResponse clear(Integer customerId) {
         Cart cart = getOrCreateCart(customerId);
-        cart.getItems().clear();
-        cartRepository.save(cart);
-        return toResponse(cart);
+        cartItemRepository.deleteByCartId(cart.getId());
+        cartItemRepository.flush();
+        return getCart(customerId);
     }
 
     private Cart getOrCreateCart(Integer customerId) {

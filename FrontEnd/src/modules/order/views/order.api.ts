@@ -92,6 +92,11 @@ export async function updateOrderStatus(orderId: number, status: string) {
   return mapOrderSummary(data) as OrderDetailResponse
 }
 
+export async function updateOrderPaymentStatus(orderId: number, paymentStatus: string) {
+  const { data } = await api.put<any>(`/api/orders/${orderId}/payment-status`, { paymentStatus })
+  return mapOrderSummary(data) as OrderDetailResponse
+}
+
 export async function updateOrder(orderId: number, payload: UpdateOrderRequest) {
   const { data } = await api.put<any>(`/api/orders/${orderId}`, payload)
   return mapOrderSummary(data) as OrderDetailResponse

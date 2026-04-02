@@ -1,5 +1,8 @@
 package com.example.demo.order.service.impl;
 
+import com.example.demo.cart.entity.Cart;
+import com.example.demo.cart.repository.CartItemRepository;
+import com.example.demo.cart.repository.CartRepository;
 import com.example.demo.customer.entity.Customer;
 import com.example.demo.customer.repository.CustomerRepository;
 import com.example.demo.loyalty.entity.LoyaltyPointHistory;
@@ -16,6 +19,7 @@ import com.example.demo.order.dto.OrderResponse;
 import com.example.demo.order.dto.ReturnOrderRequest;
 import com.example.demo.order.dto.ReturnResponse;
 import com.example.demo.order.dto.UpdateOrderRequest;
+import com.example.demo.order.dto.UpdateOrderPaymentStatusRequest;
 import com.example.demo.order.dto.UpdateOrderStatusRequest;
 import com.example.demo.order.entity.Order;
 import com.example.demo.order.entity.OrderItem;
@@ -47,6 +51,8 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ReturnOrderRepository returnOrderRepository;
     private final CustomerRepository customerRepository;
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
     private final ProductVariantRepository productVariantRepository;
     private final LoyaltyRepository loyaltyRepository;
     private final VipProgramRepository vipProgramRepository;
@@ -57,6 +63,8 @@ public class OrderServiceImpl implements OrderService {
             OrderItemRepository orderItemRepository,
             ReturnOrderRepository returnOrderRepository,
             CustomerRepository customerRepository,
+            CartRepository cartRepository,
+            CartItemRepository cartItemRepository,
             ProductVariantRepository productVariantRepository,
             LoyaltyRepository loyaltyRepository,
             VipProgramRepository vipProgramRepository,
@@ -66,6 +74,8 @@ public class OrderServiceImpl implements OrderService {
         this.orderItemRepository = orderItemRepository;
         this.returnOrderRepository = returnOrderRepository;
         this.customerRepository = customerRepository;
+        this.cartRepository = cartRepository;
+        this.cartItemRepository = cartItemRepository;
         this.productVariantRepository = productVariantRepository;
         this.loyaltyRepository = loyaltyRepository;
         this.vipProgramRepository = vipProgramRepository;
@@ -125,7 +135,7 @@ public class OrderServiceImpl implements OrderService {
         order.setCustomer(customer);
         order.setOrderDate(LocalDateTime.now());
         order.setStatus("MOI");
-        order.setPaymentMethod(safeUpper(request.getPaymentMethod()));
+        order.setPaymentMethod(normalizePaymentMethod(request.getPaymentMethod()));
         order.setChannel(safeUpper(request.getChannel()));
         order.setReceiverName(request.getReceiverName());
         order.setReceiverPhone(request.getReceiverPhone());
@@ -140,6 +150,7 @@ public class OrderServiceImpl implements OrderService {
         order = orderRepository.save(order);
 
         rebuildOrderItems(order.getId(), request.getItems(), false);
+        removePurchasedItemsFromCart(customer.getId(), request.getItems());
 
         order = orderRepository.findById(order.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
@@ -166,7 +177,7 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal total = subtotal.add(shippingFee).subtract(discountAmount);
 
         if (request.getPaymentMethod() != null) {
-            order.setPaymentMethod(safeUpper(request.getPaymentMethod()));
+            order.setPaymentMethod(normalizePaymentMethod(request.getPaymentMethod()));
         }
 
         if (request.getChannel() != null) {
@@ -220,6 +231,40 @@ public class OrderServiceImpl implements OrderService {
             recalculateVip(order.getCustomer(), "Đơn hàng #" + order.getId() + " hoàn tất");
         }
 
+        return toDetail(order);
+    }
+
+    @Override
+    public OrderDetailResponse updatePaymentStatus(Integer id, UpdateOrderPaymentStatusRequest request) {
+        Order order = findOrder(id);
+
+        if (request == null || request.getPaymentStatus() == null || request.getPaymentStatus().isBlank()) {
+            throw new RuntimeException("Trạng thái thanh toán không hợp lệ");
+        }
+
+        String newPaymentStatus = safeUpper(request.getPaymentStatus());
+        String oldPaymentStatus = safeUpper(order.getPaymentStatus());
+
+        if (!List.of("UNPAID", "PAID").contains(newPaymentStatus)) {
+            throw new RuntimeException("Chỉ hỗ trợ cập nhật thanh toán sang UNPAID hoặc PAID");
+        }
+
+        String currentOrderStatus = normalizeStatus(order.getStatus());
+        if ("HUY".equals(currentOrderStatus) || "TRA_HANG".equals(currentOrderStatus)) {
+            throw new RuntimeException("Không thể xác nhận thanh toán cho đơn đã hủy hoặc trả hàng");
+        }
+
+        if (Objects.equals(oldPaymentStatus, newPaymentStatus)) {
+            return toDetail(order);
+        }
+
+        order.setPaymentStatus(newPaymentStatus);
+
+        if ("PAID".equals(newPaymentStatus) && "MOI".equals(currentOrderStatus)) {
+            order.setStatus("DANG_XU_LY");
+        }
+
+        order = orderRepository.save(order);
         return toDetail(order);
     }
 
@@ -338,6 +383,43 @@ public class OrderServiceImpl implements OrderService {
         } catch (DataIntegrityViolationException e) {
             throw new RuntimeException("Không thể xóa đơn hàng");
         }
+    }
+
+    private void removePurchasedItemsFromCart(Integer customerId, List<? extends CreateOrderItemRequest> items) {
+        if (customerId == null || items == null || items.isEmpty()) {
+            return;
+        }
+
+        Cart cart = cartRepository.findByCustomerId(customerId).orElse(null);
+        if (cart == null || cart.getId() == null) {
+            return;
+        }
+
+        List<Integer> variantIds = items.stream()
+                .map(CreateOrderItemRequest::getVariantId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (variantIds.isEmpty()) {
+            return;
+        }
+
+        cartItemRepository.deleteByCartIdAndVariantIdIn(cart.getId(), variantIds);
+        cartItemRepository.flush();
+    }
+
+    private String normalizePaymentMethod(String paymentMethod) {
+        String value = safeUpper(paymentMethod);
+        if (value == null || value.isBlank()) {
+            return "COD";
+        }
+
+        return switch (value) {
+            case "QR", "QR_CODE", "TRANSFER", "BANK_TRANSFER" -> "BANKING";
+            case "COD", "BANKING", "MOMO", "VNPAY" -> value;
+            default -> value;
+        };
     }
 
     private void validateCreateRequest(CreateOrderRequest request) {
