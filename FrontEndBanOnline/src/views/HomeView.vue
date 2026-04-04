@@ -7,20 +7,26 @@ import type { PublicProductSummary } from '@/shared/lib/shop.types'
 const loading = ref(false)
 const error = ref('')
 const featuredProducts = ref<PublicProductSummary[]>([])
+const newArrivalProducts = ref<PublicProductSummary[]>([])
 
 const heroStyle = computed(() => ({
   backgroundImage: "url('/legacy/img/bong-da-san-co-sut-bong-banner.jpg')",
 }))
 
-async function loadFeaturedProducts() {
+async function loadHomeProducts() {
   loading.value = true
   error.value = ''
 
   try {
-    const response = await getPublicProducts({ page: 0, size: 8, sort: 'newest' })
-    featuredProducts.value = response.content || []
+    const [featuredResponse, newArrivalResponse] = await Promise.all([
+      getPublicProducts({ page: 0, size: 8, sort: 'best_selling' }),
+      getPublicProducts({ page: 0, size: 8, sort: 'newest' }),
+    ])
+
+    featuredProducts.value = featuredResponse.content || []
+    newArrivalProducts.value = newArrivalResponse.content || []
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Không tải được sản phẩm nổi bật.'
+    error.value = err instanceof Error ? err.message : 'Không tải được sản phẩm trang chủ.'
   } finally {
     loading.value = false
   }
@@ -70,7 +76,7 @@ onMounted(() => {
     preloader.style.display = 'none'
   }
   window.scrollTo({ top: 0 })
-  loadFeaturedProducts()
+  loadHomeProducts()
 })
 </script>
 
@@ -119,7 +125,7 @@ onMounted(() => {
               </div>
               <div class="banner__item__text home-banner-card__text home-banner-card__text--light">
                 <span class="home-banner-card__eyebrow">Bộ sưu tập nổi bật</span>
-                <h2>Giày sân cỏ nhân tạo</h2>
+                <h2>Quần áo đá bóng</h2>
                 <RouterLink to="/shop">Xem sản phẩm</RouterLink>
               </div>
             </div>
@@ -138,81 +144,121 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="col-lg-12">
-            <div class="banner__item home-banner-card home-banner-card--wide">
-              <div class="banner__item__pic home-banner-card__pic">
-                <img src="/legacy/img/football-shoes.jpg" alt="Giày futsal" />
-              </div>
-              <div class="banner__item__text home-banner-card__text home-banner-card__text--light">
-                <span class="home-banner-card__eyebrow">Thi đấu trong nhà</span>
-                <h2>Giày futsal</h2>
-                <RouterLink to="/shop">Xem sản phẩm</RouterLink>
-              </div>
-            </div>
-          </div>
+        
         </div>
       </div>
     </section>
 
     <section class="product spad home-product-section">
       <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <div class="section-title">
-              <span>Sản phẩm mới</span>
-              <h2>Sản phẩm nổi bật</h2>
-            </div>
-          </div>
-        </div>
-
         <div v-if="error" class="alert alert-danger mb-4">{{ error }}</div>
         <div v-else-if="loading" class="text-center py-5">Đang tải sản phẩm...</div>
 
-        <div v-else class="row product__filter">
-          <div
-            v-for="product in featuredProducts"
-            :key="product.id"
-            class="col-lg-3 col-md-6 col-sm-6"
-          >
-            <div class="product__item product-card-home" :class="{ sale: hasSale(product) }">
-              <div class="product__item__pic set-bg" :style="productCardStyle(product.imageUrl)">
-                <span v-if="hasSale(product)" class="label">Sale</span>
-                <span v-if="!isInStock(product)" class="home-stock-badge home-stock-badge--out">Hết hàng</span>
-                <ul class="product__hover">
-                  <li>
-                    <RouterLink :to="`/shop-details/${product.id}`">
-                      <img src="/legacy/img/icon/search.png" alt="Chi tiết" />
-                    </RouterLink>
-                  </li>
-                </ul>
-              </div>
-              <div class="product__item__text">
-                <h6>{{ product.name }}</h6>
-                <RouterLink :to="`/shop-details/${product.id}`" class="add-cart">+ Xem chi tiết</RouterLink>
-                <div class="rating text-muted small">{{ product.brand || 'GoalStore' }}</div>
-                <h5>
-                  <template v-if="hasSale(product)">
-                    <span class="home-price-sale">{{ formatCurrency(product.salePrice) }}</span>
-                    <span class="home-price-original">{{ formatCurrency(product.price || product.minPrice) }}</span>
-                  </template>
-                  <template v-else>
-                    {{ formatPrice(product) }}
-                  </template>
-                </h5>
+        <template v-else>
+          <div class="row">
+            <div class="col-lg-12">
+              <div class="section-title">
+                <span>Bán chạy nhất</span>
+                <h2>Sản phẩm nổi bật</h2>
               </div>
             </div>
           </div>
 
-          <div v-if="!featuredProducts.length" class="col-12 text-center py-4">
-            Chưa có sản phẩm để hiển thị.
-          </div>
-        </div>
+          <div class="row product__filter">
+            <div
+              v-for="product in featuredProducts"
+              :key="`featured-${product.id}`"
+              class="col-lg-3 col-md-6 col-sm-6"
+            >
+              <div class="product__item product-card-home" :class="{ sale: hasSale(product) }">
+                <div class="product__item__pic set-bg" :style="productCardStyle(product.imageUrl)">
+                  <span v-if="hasSale(product)" class="label">Sale</span>
+                  <span v-if="!isInStock(product)" class="home-stock-badge home-stock-badge--out">Hết hàng</span>
+                  <ul class="product__hover">
+                    <li>
+                      <RouterLink :to="`/shop-details/${product.id}`">
+                        <img src="/legacy/img/icon/search.png" alt="Chi tiết" />
+                      </RouterLink>
+                    </li>
+                  </ul>
+                </div>
+                <div class="product__item__text">
+                  <h6>{{ product.name }}</h6>
+                  <RouterLink :to="`/shop-details/${product.id}`" class="add-cart">+ Xem chi tiết</RouterLink>
+                  <div class="rating text-muted small">{{ product.brand || 'GoalStore' }}</div>
+                  <h5>
+                    <template v-if="hasSale(product)">
+                      <span class="home-price-sale">{{ formatCurrency(product.salePrice) }}</span>
+                      <span class="home-price-original">{{ formatCurrency(product.price || product.minPrice) }}</span>
+                    </template>
+                    <template v-else>
+                      {{ formatPrice(product) }}
+                    </template>
+                  </h5>
+                </div>
+              </div>
+            </div>
 
-        <div class="row mt-4">
-          <div class="col-lg-12 text-center">
-            <RouterLink to="/shop" class="primary-btn">Xem tất cả sản phẩm</RouterLink>
+            <div v-if="!featuredProducts.length" class="col-12 text-center py-4">
+              Chưa có sản phẩm nổi bật để hiển thị.
+            </div>
           </div>
-        </div>
+
+          <div class="row home-product-section__divider">
+            <div class="col-lg-12">
+              <div class="section-title">
+                <span>Hàng mới cập nhật</span>
+                <h2>Sản phẩm mới về</h2>
+              </div>
+            </div>
+          </div>
+
+          <div class="row product__filter">
+            <div
+              v-for="product in newArrivalProducts"
+              :key="`new-${product.id}`"
+              class="col-lg-3 col-md-6 col-sm-6"
+            >
+              <div class="product__item product-card-home" :class="{ sale: hasSale(product) }">
+                <div class="product__item__pic set-bg" :style="productCardStyle(product.imageUrl)">
+                  <span class="label label--new">Mới</span>
+                  <span v-if="!isInStock(product)" class="home-stock-badge home-stock-badge--out">Hết hàng</span>
+                  <ul class="product__hover">
+                    <li>
+                      <RouterLink :to="`/shop-details/${product.id}`">
+                        <img src="/legacy/img/icon/search.png" alt="Chi tiết" />
+                      </RouterLink>
+                    </li>
+                  </ul>
+                </div>
+                <div class="product__item__text">
+                  <h6>{{ product.name }}</h6>
+                  <RouterLink :to="`/shop-details/${product.id}`" class="add-cart">+ Xem chi tiết</RouterLink>
+                  <div class="rating text-muted small">{{ product.brand || 'GoalStore' }}</div>
+                  <h5>
+                    <template v-if="hasSale(product)">
+                      <span class="home-price-sale">{{ formatCurrency(product.salePrice) }}</span>
+                      <span class="home-price-original">{{ formatCurrency(product.price || product.minPrice) }}</span>
+                    </template>
+                    <template v-else>
+                      {{ formatPrice(product) }}
+                    </template>
+                  </h5>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="!newArrivalProducts.length" class="col-12 text-center py-4">
+              Chưa có sản phẩm mới về để hiển thị.
+            </div>
+          </div>
+
+          <div class="row mt-4">
+            <div class="col-lg-12 text-center">
+              <RouterLink to="/shop" class="primary-btn">Xem tất cả sản phẩm</RouterLink>
+            </div>
+          </div>
+        </template>
       </div>
     </section>
 
@@ -230,6 +276,14 @@ onMounted(() => {
 <style scoped>
 .home-product-section {
   padding-top: 0;
+}
+
+.home-product-section__divider {
+  margin-top: 28px;
+}
+
+.label--new {
+  background: #111111;
 }
 
 .product-card-home .product__item__pic {

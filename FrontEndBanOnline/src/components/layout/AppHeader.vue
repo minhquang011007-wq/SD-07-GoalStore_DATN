@@ -42,12 +42,13 @@ async function refreshHeaderState() {
   }
 }
 
-function isActive(type: "home" | "shop" | "contact" | "cart" | "orders") {
+function isActive(type: "home" | "shop" | "contact" | "cart" | "orders" | "account") {
   const path = route.path
   if (type === "home") return path === "/"
   if (type === "shop") return path === "/shop" || path.startsWith("/shop-details")
   if (type === "contact") return path === "/contact"
   if (type === "orders") return path === "/orders"
+  if (type === "account") return path === "/account"
   return path === "/cart" || path === "/checkout"
 }
 
@@ -85,7 +86,7 @@ onUnmounted(() => {
       <div class="offcanvas__option">
         <div class="offcanvas__links">
           <template v-if="loggedIn">
-            <a href="#">{{ displayName }}</a>
+            <RouterLink to="/account">{{ displayName }}</RouterLink>
             <RouterLink to="/orders">Đơn hàng</RouterLink>
             <a href="#" @click.prevent="logout">Đăng xuất</a>
           </template>
@@ -125,7 +126,7 @@ onUnmounted(() => {
               <div class="header__top__right">
                 <div class="header__top__links">
                   <template v-if="loggedIn">
-                    <a href="#">{{ displayName }}</a>
+                    <RouterLink to="/account">{{ displayName }}</RouterLink>
                     <RouterLink to="/orders">Đơn hàng</RouterLink>
                     <a href="#" @click.prevent="logout">Đăng xuất</a>
                   </template>
@@ -153,9 +154,7 @@ onUnmounted(() => {
               <ul>
                 <li :class="{ active: isActive('home') }"><RouterLink to="/">Trang chủ</RouterLink></li>
                 <li :class="{ active: isActive('shop') }"><RouterLink to="/shop">Sản phẩm</RouterLink></li>
-                <li :class="{ active: isActive('contact') }"><RouterLink to="/contact">Liên hệ</RouterLink></li>
-                <li :class="{ active: isActive('orders') }"><RouterLink to="/orders">Đơn hàng</RouterLink></li>
-                <li :class="{ active: isActive('cart') }"><RouterLink to="/cart">Giỏ hàng</RouterLink></li>
+                <li :class="{ active: isActive('contact') }"><RouterLink to="/contact">Liên hệ</RouterLink></li>                <li :class="{ active: isActive('cart') }"><RouterLink to="/cart">Giỏ hàng</RouterLink></li>
               </ul>
             </nav>
           </div>

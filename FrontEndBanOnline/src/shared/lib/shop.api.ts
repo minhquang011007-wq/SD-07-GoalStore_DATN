@@ -5,6 +5,8 @@ import type {
   CheckoutOrderRequest,
   CustomerAddress,
   CustomerAddressPayload,
+  CustomerProfile,
+  CustomerProfilePayload,
   OrderResponse,
   PageResponse,
   PublicProductDetail,
@@ -25,6 +27,7 @@ import {
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8080'
 const CART_STORAGE_KEY = 'goalstore_cart'
+const MOCK_CUSTOMER_STORAGE_KEY = 'goalstore_mock_customers'
 const ADDRESS_STORAGE_KEY = 'goalstore_customer_addresses'
 const ORDER_STORAGE_KEY = 'goalstore_customer_orders'
 const RETURN_STORAGE_KEY = 'goalstore_order_returns'
@@ -241,6 +244,84 @@ function buildCartResponse(lines: LocalCartLine[]): CartResponse {
     totalAmount: items.reduce((sum, item) => sum + toNumber(item.lineTotal), 0),
     items,
   }
+}
+
+
+function readMockCustomers() {
+  return readJsonStorage<Array<Record<string, any>>>(MOCK_CUSTOMER_STORAGE_KEY, [])
+}
+
+function writeMockCustomers(customers: Array<Record<string, any>>) {
+  writeJsonStorage(MOCK_CUSTOMER_STORAGE_KEY, customers)
+}
+
+function getCustomerProfileLocal(customerId: number) {
+  const customers = readMockCustomers()
+  const matched = customers.find((item) => Number(item.customerId ?? item.id) === Number(customerId))
+  if (!matched) {
+    return {
+      id: customerId,
+      ten: typeof window !== 'undefined' ? window.localStorage.getItem('displayName') || 'Khách hàng' : 'Khách hàng',
+      email: typeof window !== 'undefined' ? window.localStorage.getItem('email') || '' : '',
+      sdt: '',
+      ngaySinh: '',
+      loaiKhach: 'THUONG',
+      diemTichLuy: 0,
+      ghiChu: '',
+    } as CustomerProfile
+  }
+
+  return {
+    id: Number(matched.customerId ?? matched.id ?? customerId),
+    ten: String(matched.ten || ''),
+    email: matched.email || '',
+    sdt: matched.sdt || '',
+    ngaySinh: matched.ngaySinh || '',
+    loaiKhach: matched.loaiKhach || 'THUONG',
+    diemTichLuy: Number(matched.diemTichLuy || 0),
+    ghiChu: matched.ghiChu || '',
+  } as CustomerProfile
+}
+
+function saveCustomerProfileLocal(customerId: number, payload: CustomerProfilePayload) {
+  const customers = readMockCustomers()
+  const index = customers.findIndex((item) => Number(item.customerId ?? item.id) === Number(customerId))
+  const normalizedEmail = String(payload.email || '').trim().toLowerCase()
+
+  if (index >= 0) {
+    customers[index] = {
+      ...customers[index],
+      customerId: Number(customers[index].customerId ?? customers[index].id ?? customerId),
+      ten: payload.ten.trim(),
+      email: normalizedEmail,
+      sdt: payload.sdt.trim(),
+      ngaySinh: payload.ngaySinh || '',
+      loaiKhach: payload.loaiKhach || customers[index].loaiKhach || 'THUONG',
+      diemTichLuy: payload.diemTichLuy ?? customers[index].diemTichLuy ?? 0,
+      ghiChu: payload.ghiChu || '',
+    }
+  } else {
+    customers.push({
+      customerId: customerId,
+      ten: payload.ten.trim(),
+      email: normalizedEmail,
+      sdt: payload.sdt.trim(),
+      ngaySinh: payload.ngaySinh || '',
+      loaiKhach: payload.loaiKhach || 'THUONG',
+      diemTichLuy: payload.diemTichLuy ?? 0,
+      ghiChu: payload.ghiChu || '',
+      password: '123456',
+    })
+  }
+
+  writeMockCustomers(customers)
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('displayName', payload.ten.trim())
+    window.localStorage.setItem('email', normalizedEmail)
+  }
+
+  return getCustomerProfileLocal(customerId)
 }
 
 function readAddressBook() {
@@ -636,6 +717,45 @@ export async function clearCart(customerId?: number | string) {
   syncSelectedCartItemIds(cart.items, false)
   dispatchCartUpdated(cart)
   return delay(cart)
+}
+
+
+export async function getCustomerProfile(customerId: number) {
+  try {
+    if (!hasMockSession()) {
+      return await apiRequest<CustomerProfile>(`/api/customers/${customerId}`)
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(getCustomerProfileLocal(customerId))
+}
+
+export async function updateCustomerProfile(customerId: number, payload: CustomerProfilePayload) {
+  try {
+    if (!hasMockSession()) {
+      const updated = await apiRequest<CustomerProfile>(`/api/customers/${customerId}`, {
+        method: 'PUT',
+        body: payload,
+      })
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('displayName', payload.ten.trim())
+        window.localStorage.setItem('email', String(payload.email || '').trim().toLowerCase())
+      }
+
+      return updated
+    }
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+  }
+
+  return delay(saveCustomerProfileLocal(customerId, payload))
 }
 
 export async function getCustomerAddresses(customerId: number) {

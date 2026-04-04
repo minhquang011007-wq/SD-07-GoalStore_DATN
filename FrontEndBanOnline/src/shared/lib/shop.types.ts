@@ -104,6 +104,28 @@ export type CartResponse = {
   items?: CartItem[]
 }
 
+
+export type CustomerProfile = {
+  id: number
+  ten: string
+  email?: string | null
+  sdt?: string | null
+  ngaySinh?: string | null
+  loaiKhach?: string | null
+  diemTichLuy?: number | null
+  ghiChu?: string | null
+}
+
+export type CustomerProfilePayload = {
+  ten: string
+  email: string
+  sdt: string
+  ngaySinh?: string | null
+  loaiKhach?: string | null
+  diemTichLuy?: number | null
+  ghiChu?: string | null
+}
+
 export type CustomerAddress = {
   id: number
   customerId: number

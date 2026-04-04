@@ -8,6 +8,7 @@ import MyOrdersView from '@/views/MyOrdersView.vue'
 import ContactView from '@/views/ContactView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
+import AccountView from '@/views/AccountView.vue'
 import { getRole } from '@/shared/lib/auth'
 import { hydrateSessionFromUrl } from '@/shared/lib/cross-app-auth'
 
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/cart', name: 'ShoppingCart', component: ShoppingCartView },
     { path: '/checkout', name: 'Checkout', component: CheckoutView },
     { path: '/orders', name: 'MyOrders', component: MyOrdersView },
+    { path: '/account', name: 'Account', component: AccountView },
     { path: '/contact', name: 'Contact', component: ContactView },
     { path: '/login', name: 'Login', component: LoginView, meta: { public: true } },
     { path: '/register', name: 'Register', component: RegisterView, meta: { public: true } },

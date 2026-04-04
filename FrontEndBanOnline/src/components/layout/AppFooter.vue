@@ -16,8 +16,8 @@
           <div class="footer__widget">
             <h6>Danh mục</h6>
             <ul>
-              <li><a href="/shop">Giày sân cỏ nhân tạo</a></li>
-              <li><a href="/shop">Giày futsal</a></li>
+              <li><a href="/shop">Áo đá bóng</a></li>
+              <li><a href="/shop">Quần đá bóng</a></li>
               <li><a href="/shop">Phụ kiện</a></li>
               <li><a href="/shop">Sale</a></li>
             </ul>

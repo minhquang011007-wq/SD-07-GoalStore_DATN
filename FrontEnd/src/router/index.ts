@@ -32,11 +32,11 @@ const router = createRouter({
             return HOME_BY_ROLE[role as StaffRole] || "/admin"
           },
         },
-        // {
-        //   path: "admin",
-        //   component: () => import("@/modules/system/dashboard/views/AdminHomeView.vue"),
-        //   meta: { roles: ["ADMIN"], moduleOwner: "system" },
-        // },
+        {
+          path: "admin",
+          component: () => import("@/modules/system/dashboard/views/AdminHomeView.vue"),
+          meta: { roles: ["ADMIN"], moduleOwner: "system" },
+        },
         {
           path: "sales",
           component: () => import("@/modules/system/dashboard/views/SalesHomeView.vue"),
