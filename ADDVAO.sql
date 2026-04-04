@@ -160,6 +160,23 @@ BEGIN
 END
 GO
 
+/* =========================================================
+   GOALSTORE - UPDATE VOUCHER QUANTITY (SQL SERVER)
+   Chạy file này nếu trước đó đã chạy voucher_setup.sql cũ
+   ========================================================= */
+
+IF COL_LENGTH('dbo.Vouchers', 'total_quantity') IS NULL
+BEGIN
+    ALTER TABLE dbo.Vouchers ADD total_quantity INT NOT NULL CONSTRAINT DF_Vouchers_total_quantity DEFAULT 100;
+END
+GO
+
+UPDATE dbo.Vouchers
+SET total_quantity = 100
+WHERE total_quantity IS NULL OR total_quantity <= 0;
+GO
+
+
 IF COL_LENGTH('dbo.Orders', 'voucher_id') IS NULL
 BEGIN
     ALTER TABLE dbo.Orders ADD voucher_id INT NULL;
