@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  TicketPercent,
   LogOut,
 } from "lucide-vue-next"
 
@@ -46,6 +47,7 @@ const navigation: NavItem[] = [
   { name: "Deals", path: "/sales/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Tasks", path: "/sales/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Orders", path: "/admin/orders", icon: CreditCard, roles: ["ADMIN"], note: "Trang quản lý đơn hàng" },
+  { name: "Vouchers", path: "/admin/vouchers", icon: TicketPercent, roles: ["ADMIN"], note: "Trang quản lý voucher" },
   { name: "Reports", path: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], note: "Trang quản lý báo cáo" },
   { name: "Docs", path: "/admin/docs", icon: BookOpen, roles: ["ADMIN"], note: "Trang tra cứu tài liệu" },
   { name: "Settings", path: "/admin/settings", icon: Settings, roles: ["ADMIN"], note: "Trang quản lý tài khoản" },

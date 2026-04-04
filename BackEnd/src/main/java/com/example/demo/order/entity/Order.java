@@ -54,6 +54,18 @@ public class Order {
     @Column(name = "discount_amount")
     private BigDecimal discountAmount;
 
+    @Column(name = "voucher_id")
+    private Integer voucherId;
+
+    @Column(name = "voucher_code", length = 50)
+    private String voucherCode;
+
+    @Column(name = "voucher_name", length = 255)
+    private String voucherName;
+
+    @Column(name = "voucher_percent", precision = 5, scale = 2)
+    private BigDecimal voucherPercent;
+
     @Column(name = "total")
     private BigDecimal total;
 
@@ -167,6 +179,38 @@ public class Order {
 
     public void setDiscountAmount(BigDecimal discountAmount) {
         this.discountAmount = discountAmount;
+    }
+
+    public Integer getVoucherId() {
+        return voucherId;
+    }
+
+    public void setVoucherId(Integer voucherId) {
+        this.voucherId = voucherId;
+    }
+
+    public String getVoucherCode() {
+        return voucherCode;
+    }
+
+    public void setVoucherCode(String voucherCode) {
+        this.voucherCode = voucherCode;
+    }
+
+    public String getVoucherName() {
+        return voucherName;
+    }
+
+    public void setVoucherName(String voucherName) {
+        this.voucherName = voucherName;
+    }
+
+    public BigDecimal getVoucherPercent() {
+        return voucherPercent;
+    }
+
+    public void setVoucherPercent(BigDecimal voucherPercent) {
+        this.voucherPercent = voucherPercent;
     }
 
     public BigDecimal getTotal() {

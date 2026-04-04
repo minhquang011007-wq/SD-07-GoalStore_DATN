@@ -156,6 +156,7 @@ export type CheckoutOrderRequest = {
   note?: string
   shippingFee?: number
   discountAmount?: number
+  voucherId?: number | null
   selectedItemIds?: number[]
 }
 
@@ -191,6 +192,10 @@ export type OrderResponse = {
   subtotal?: number | string | null
   shippingFee?: number | string | null
   discountAmount?: number | string | null
+  voucherId?: number | null
+  voucherCode?: string | null
+  voucherName?: string | null
+  voucherPercent?: number | string | null
   total?: number | string | null
   orderDate?: string | null
   items?: OrderItemSummary[]

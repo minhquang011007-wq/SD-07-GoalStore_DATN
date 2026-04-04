@@ -24,6 +24,10 @@ public class OrderDetailResponse {
     private BigDecimal subtotal;
     private BigDecimal shippingFee;
     private BigDecimal discountAmount;
+    private Integer voucherId;
+    private String voucherCode;
+    private String voucherName;
+    private BigDecimal voucherPercent;
     private BigDecimal total;
 
     private List<OrderItemDetailResponse> items;
@@ -165,6 +169,38 @@ public class OrderDetailResponse {
 
     public void setDiscountAmount(BigDecimal discountAmount) {
         this.discountAmount = discountAmount;
+    }
+
+    public Integer getVoucherId() {
+        return voucherId;
+    }
+
+    public void setVoucherId(Integer voucherId) {
+        this.voucherId = voucherId;
+    }
+
+    public String getVoucherCode() {
+        return voucherCode;
+    }
+
+    public void setVoucherCode(String voucherCode) {
+        this.voucherCode = voucherCode;
+    }
+
+    public String getVoucherName() {
+        return voucherName;
+    }
+
+    public void setVoucherName(String voucherName) {
+        this.voucherName = voucherName;
+    }
+
+    public BigDecimal getVoucherPercent() {
+        return voucherPercent;
+    }
+
+    public void setVoucherPercent(BigDecimal voucherPercent) {
+        this.voucherPercent = voucherPercent;
     }
 
     public BigDecimal getTotal() {

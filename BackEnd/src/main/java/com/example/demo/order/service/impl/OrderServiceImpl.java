@@ -32,6 +32,9 @@ import com.example.demo.product_category.common.enums.VariantStockStatus;
 import com.example.demo.product_category.product.entity.Product;
 import com.example.demo.product_category.variant.entity.ProductVariant;
 import com.example.demo.product_category.variant.repository.ProductVariantRepository;
+import com.example.demo.voucher.entity.CustomerVoucher;
+import com.example.demo.voucher.entity.Voucher;
+import com.example.demo.voucher.service.VoucherService;
 import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final LoyaltyRepository loyaltyRepository;
     private final VipProgramRepository vipProgramRepository;
     private final VipHistoryRepository vipHistoryRepository;
+    private final VoucherService voucherService;
 
     public OrderServiceImpl(
             OrderRepository orderRepository,
@@ -68,7 +72,8 @@ public class OrderServiceImpl implements OrderService {
             ProductVariantRepository productVariantRepository,
             LoyaltyRepository loyaltyRepository,
             VipProgramRepository vipProgramRepository,
-            VipHistoryRepository vipHistoryRepository
+            VipHistoryRepository vipHistoryRepository,
+            VoucherService voucherService
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -80,6 +85,7 @@ public class OrderServiceImpl implements OrderService {
         this.loyaltyRepository = loyaltyRepository;
         this.vipProgramRepository = vipProgramRepository;
         this.vipHistoryRepository = vipHistoryRepository;
+        this.voucherService = voucherService;
     }
 
     @Override
@@ -124,7 +130,18 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal subtotal = calculateSubtotal(request.getItems());
         BigDecimal shippingFee = request.getShippingFee() == null ? BigDecimal.ZERO : request.getShippingFee();
-        BigDecimal discountAmount = request.getDiscountAmount() == null ? BigDecimal.ZERO : request.getDiscountAmount();
+        Voucher voucher = null;
+        CustomerVoucher customerVoucher = null;
+
+        BigDecimal discountAmount;
+        if (request.getVoucherId() != null) {
+            customerVoucher = voucherService.getUsableCustomerVoucher(customer.getId(), request.getVoucherId());
+            voucher = customerVoucher.getVoucher();
+            discountAmount = voucherService.calculateDiscountAmount(voucher, subtotal);
+        } else {
+            discountAmount = request.getDiscountAmount() == null ? BigDecimal.ZERO : request.getDiscountAmount();
+        }
+
         BigDecimal total = subtotal.add(shippingFee).subtract(discountAmount);
 
         if (total.compareTo(BigDecimal.ZERO) < 0) {
@@ -144,10 +161,15 @@ public class OrderServiceImpl implements OrderService {
         order.setSubtotal(subtotal);
         order.setShippingFee(shippingFee);
         order.setDiscountAmount(discountAmount);
+        order.setVoucherId(voucher != null ? voucher.getId() : null);
+        order.setVoucherCode(voucher != null ? voucher.getCode() : null);
+        order.setVoucherName(voucher != null ? voucher.getName() : null);
+        order.setVoucherPercent(voucher != null ? voucher.getDiscountPercent() : null);
         order.setPaymentStatus("UNPAID");
         order.setTotal(total);
 
         order = orderRepository.save(order);
+        voucherService.markVoucherUsed(customerVoucher, order.getId(), "#" + order.getId());
 
         rebuildOrderItems(order.getId(), request.getItems(), false);
         removePurchasedItemsFromCart(customer.getId(), request.getItems());
@@ -173,7 +195,7 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal subtotal = rebuildOrderItems(order.getId(), request.getItems(), false);
         BigDecimal shippingFee = order.getShippingFee() == null ? BigDecimal.ZERO : order.getShippingFee();
-        BigDecimal discountAmount = order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount();
+        BigDecimal discountAmount = recalculateDiscountAmount(order, subtotal);
         BigDecimal total = subtotal.add(shippingFee).subtract(discountAmount);
 
         if (request.getPaymentMethod() != null) {
@@ -189,6 +211,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setSubtotal(subtotal);
+        order.setDiscountAmount(discountAmount);
         order.setTotal(total);
         order = orderRepository.save(order);
 
@@ -554,6 +577,14 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    private BigDecimal recalculateDiscountAmount(Order order, BigDecimal subtotal) {
+        if (order.getVoucherPercent() != null && order.getVoucherPercent().compareTo(BigDecimal.ZERO) > 0) {
+            return subtotal.multiply(order.getVoucherPercent())
+                    .divide(new BigDecimal("100"), 0, RoundingMode.DOWN);
+        }
+        return order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount();
+    }
+
     private int calculatePoints(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return 0;
@@ -655,6 +686,10 @@ public class OrderServiceImpl implements OrderService {
         response.setSubtotal(order.getSubtotal() != null ? order.getSubtotal() : subtotal);
         response.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
         response.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+        response.setVoucherId(order.getVoucherId());
+        response.setVoucherCode(order.getVoucherCode());
+        response.setVoucherName(order.getVoucherName());
+        response.setVoucherPercent(order.getVoucherPercent());
         response.setTotal(order.getTotal());
         response.setTotalItems(items.stream().mapToInt(OrderItem::getQuantity).sum());
         return response;
@@ -725,6 +760,10 @@ public class OrderServiceImpl implements OrderService {
         response.setSubtotal(order.getSubtotal() != null ? order.getSubtotal() : subtotal);
         response.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
         response.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+        response.setVoucherId(order.getVoucherId());
+        response.setVoucherCode(order.getVoucherCode());
+        response.setVoucherName(order.getVoucherName());
+        response.setVoucherPercent(order.getVoucherPercent());
         response.setTotal(order.getTotal());
         response.setItems(detailItems);
         response.setTotalItems(detailItems.stream().mapToInt(OrderItemDetailResponse::getQuantity).sum());

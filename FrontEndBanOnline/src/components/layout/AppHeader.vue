@@ -42,13 +42,14 @@ async function refreshHeaderState() {
   }
 }
 
-function isActive(type: "home" | "shop" | "contact" | "cart" | "orders" | "account") {
+function isActive(type: "home" | "shop" | "contact" | "cart" | "orders" | "account" | "voucher") {
   const path = route.path
   if (type === "home") return path === "/"
   if (type === "shop") return path === "/shop" || path.startsWith("/shop-details")
   if (type === "contact") return path === "/contact"
   if (type === "orders") return path === "/orders"
   if (type === "account") return path === "/account"
+  if (type === "voucher") return path === "/voucher"
   return path === "/cart" || path === "/checkout"
 }
 
@@ -154,7 +155,9 @@ onUnmounted(() => {
               <ul>
                 <li :class="{ active: isActive('home') }"><RouterLink to="/">Trang chủ</RouterLink></li>
                 <li :class="{ active: isActive('shop') }"><RouterLink to="/shop">Sản phẩm</RouterLink></li>
-                <li :class="{ active: isActive('contact') }"><RouterLink to="/contact">Liên hệ</RouterLink></li>                <li :class="{ active: isActive('cart') }"><RouterLink to="/cart">Giỏ hàng</RouterLink></li>
+                <li :class="{ active: isActive('voucher') }"><RouterLink to="/voucher">Voucher</RouterLink></li>
+                <li :class="{ active: isActive('contact') }"><RouterLink to="/contact">Liên hệ</RouterLink></li>
+                <li :class="{ active: isActive('cart') }"><RouterLink to="/cart">Giỏ hàng</RouterLink></li>
               </ul>
             </nav>
           </div>
@@ -163,7 +166,6 @@ onUnmounted(() => {
             <div class="header__nav__option">
               <RouterLink to="/shop"><img src="/legacy/img/icon/search.png" alt="search" /></RouterLink>
               <RouterLink to="/cart"><img src="/legacy/img/icon/cart.png" alt="cart" /> <span>{{ cartCount }}</span></RouterLink>
-              <!-- <div class="price">{{ formatCurrency(cartTotal) }}</div> -->
             </div>
           </div>
         </div>

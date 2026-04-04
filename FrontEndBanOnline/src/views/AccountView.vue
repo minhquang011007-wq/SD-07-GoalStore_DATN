@@ -68,6 +68,7 @@
 
               <div class="account-summary-actions">
                 <RouterLink to="/orders" class="primary-btn w-100 text-center">Theo dõi đơn hàng</RouterLink>
+                <RouterLink to="/voucher" class="secondary-btn w-100 text-center">Kho voucher</RouterLink>
                 <RouterLink to="/shop" class="secondary-btn w-100 text-center">Tiếp tục mua sắm</RouterLink>
               </div>
             </div>
@@ -391,9 +392,10 @@ async function handleSaveAddress() {
       isDefault: true,
     }
 
-    const isCreatingNewAddress = selectedAddressKey.value === 'new' || !defaultAddress.value?.id
+    const currentAddressId = defaultAddress.value?.id ?? null
+    const isCreatingNewAddress = selectedAddressKey.value === 'new' || !currentAddressId
     const saved = !isCreatingNewAddress
-      ? await updateCustomerAddress(defaultAddress.value.id, payload)
+      ? await updateCustomerAddress(currentAddressId as number, payload)
       : await createCustomerAddress(payload)
 
     savedAddresses.value = [saved, ...savedAddresses.value.filter((item) => item.id !== saved.id).map((item) => ({ ...item, isDefault: false }))]

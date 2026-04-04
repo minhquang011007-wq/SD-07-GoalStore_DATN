@@ -35,6 +35,10 @@ function mapOrderSummary(data: any): OrderResponse {
     subtotal: Number(data?.subtotal ?? data?.total ?? 0),
     shippingFee: Number(data?.shippingFee ?? 0),
     discountAmount: Number(data?.discountAmount ?? 0),
+    voucherId: data?.voucherId == null ? null : Number(data.voucherId),
+    voucherCode: data?.voucherCode ?? null,
+    voucherName: data?.voucherName ?? null,
+    voucherPercent: data?.voucherPercent == null ? null : Number(data.voucherPercent),
     total: Number(data?.total ?? 0),
     orderDate: data?.orderDate ?? null,
     items: Array.isArray(data?.items)

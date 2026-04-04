@@ -872,6 +872,9 @@ onMounted(async () => {
               <div class="rounded-lg border p-3">
                 <div class="text-xs text-slate-500">Giảm giá</div>
                 <div class="mt-1 font-semibold">{{ formatCurrency(selectedOrder.discountAmount) }}</div>
+                <div v-if="selectedOrder.voucherCode" class="mt-1 text-xs text-slate-500">
+                  Voucher: {{ selectedOrder.voucherCode }}<span v-if="selectedOrder.voucherPercent"> - {{ selectedOrder.voucherPercent }}%</span>
+                </div>
               </div>
               <div class="rounded-lg border bg-slate-50 p-3">
                 <div class="text-xs text-slate-500">Tổng thanh toán</div>

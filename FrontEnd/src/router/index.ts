@@ -58,6 +58,11 @@ const router = createRouter({
           meta: { roles: ["ADMIN"], moduleOwner: "order" },
         },
         {
+          path: "admin/vouchers",
+          component: () => import("@/modules/voucher/views/VoucherManagementView.vue"),
+          meta: { roles: ["ADMIN"], moduleOwner: "voucher" },
+        },
+        {
           path: "sales/deals",
           component: () => import("@/modules/sales/views/DealsView.vue"),
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "sales" },

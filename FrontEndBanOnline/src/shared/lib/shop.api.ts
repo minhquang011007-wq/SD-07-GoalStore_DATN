@@ -864,6 +864,7 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
         shippingAddress: formatAddress(address),
         shippingFee,
         discountAmount,
+        voucherId: payload.voucherId ?? null,
         items: items.map((item) => ({
           variantId: Number(item.variantId),
           quantity: Number(item.quantity),
@@ -893,6 +894,10 @@ export async function checkoutCart(payload: CheckoutOrderRequest) {
         subtotal: backendOrder?.subtotal ?? subtotal,
         shippingFee: backendOrder?.shippingFee ?? shippingFee,
         discountAmount: backendOrder?.discountAmount ?? discountAmount,
+        voucherId: backendOrder?.voucherId ?? payload.voucherId ?? null,
+        voucherCode: backendOrder?.voucherCode ?? null,
+        voucherName: backendOrder?.voucherName ?? null,
+        voucherPercent: backendOrder?.voucherPercent ?? null,
         total: backendOrder?.total ?? total,
         orderDate: backendOrder?.orderDate || new Date().toISOString(),
         items: (backendOrder?.items || items).map((item: any, index: number) => ({

@@ -252,9 +252,54 @@
                     </div>
                   </div>
 
+                  <div class="checkout-voucher-box">
+                    <div class="checkout-voucher-box__head">
+                      <h6>Voucher áp dụng</h6>
+                      <RouterLink to="/voucher">Đi tới kho voucher</RouterLink>
+                    </div>
+
+                    <div v-if="voucherWallet.filter((item) => item.claimed).length" class="checkout-voucher-list">
+                      <label class="checkout-voucher-item" :class="{ 'checkout-voucher-item--active': selectedVoucherId === null }">
+                        <input :checked="selectedVoucherId === null" type="radio" name="checkout-voucher" @change="selectVoucher(null)" />
+                        <div>
+                          <strong>Không dùng voucher</strong>
+                          <p>Giữ nguyên tổng tiền đơn hàng.</p>
+                        </div>
+                      </label>
+
+                      <label
+                        v-for="voucher in voucherWallet.filter((item) => item.claimed)"
+                        :key="voucher.id"
+                        class="checkout-voucher-item"
+                        :class="{ 'checkout-voucher-item--active': selectedVoucherId === voucher.id, 'checkout-voucher-item--disabled': !!voucherDisabledReason(voucher) }"
+                      >
+                        <input
+                          :checked="selectedVoucherId === voucher.id"
+                          type="radio"
+                          name="checkout-voucher"
+                          :disabled="!!voucherDisabledReason(voucher)"
+                          @change="selectVoucher(voucher.id)"
+                        />
+                        <div>
+                          <strong>{{ voucher.code }} - Giảm {{ voucher.discountPercent }}%</strong>
+                          <p>
+                            {{ voucher.description || 'Voucher giảm giá đơn hàng.' }}
+                            <span v-if="voucherDisabledReason(voucher)"> • {{ voucherDisabledReason(voucher) }}</span>
+                          </p>
+                        </div>
+                        <span class="checkout-voucher-item__value">-{{ formatCurrency(calculateVoucherDiscount(voucher.discountPercent, subtotal)) }}</span>
+                      </label>
+                    </div>
+
+                    <div v-else class="checkout-voucher-empty">
+                      Bạn chưa nhận voucher nào. Vào <RouterLink to="/voucher">trang voucher</RouterLink> để nhận trước khi thanh toán.
+                    </div>
+                  </div>
+
                   <ul class="checkout__total__all">
                     <li>Tạm tính <span>{{ formatCurrency(subtotal) }}</span></li>
                     <li>Phí vận chuyển <span>{{ shippingFee ? formatCurrency(shippingFee) : 'Miễn phí' }}</span></li>
+                    <li>Giảm voucher <span>-{{ formatCurrency(voucherDiscount) }}</span></li>
                     <li>Tổng cộng <span>{{ formatCurrency(grandTotal) }}</span></li>
                   </ul>
 
@@ -291,6 +336,15 @@ import {
   updateCustomerAddress,
 } from '@/shared/lib/shop.api'
 import { buildQrImageUrl, buildQrTransferContent, getQrBankInfo, isQrPaymentMethod } from '@/shared/lib/payment'
+import {
+  calculateVoucherDiscount,
+  clearSelectedVoucherForCustomer,
+  getCustomerVoucherWallet,
+  getSelectedVoucherForCustomer,
+  markVoucherAsUsed,
+  setSelectedVoucherForCustomer,
+  type CustomerVoucherWalletItem,
+} from '@/shared/lib/voucher.api'
 import type { CartItem, CartResponse, CustomerAddress, OrderResponse } from '@/shared/lib/shop.types'
 
 const loading = ref(true)
@@ -306,6 +360,8 @@ const agreeTerms = ref(true)
 const orderSuccess = ref<OrderResponse | null>(null)
 const submittedItems = ref<CartItem[]>([])
 const selectedCartItemIds = ref<number[]>([])
+const voucherWallet = ref<CustomerVoucherWalletItem[]>([])
+const selectedVoucherId = ref<number | null>(null)
 
 const form = reactive({
   receiverName: '',
@@ -407,12 +463,61 @@ function fillForm(address?: CustomerAddress | null) {
 const cartItems = computed(() => cart.value.items || [])
 const subtotal = computed(() => toNumber(cart.value.totalAmount))
 const shippingFee = computed(() => (subtotal.value >= 1000000 ? 0 : 30000))
-const grandTotal = computed(() => subtotal.value + shippingFee.value)
+const selectedVoucher = computed(() => voucherWallet.value.find((item) => Number(item.id) === Number(selectedVoucherId.value)) || null)
+const voucherDiscount = computed(() => {
+  const voucher = selectedVoucher.value
+  if (!voucher || !voucher.claimed || voucher.used) return 0
+  const minOrderAmount = toNumber(voucher.minOrderAmount)
+  if (subtotal.value < minOrderAmount) return 0
+  return calculateVoucherDiscount(toNumber(voucher.discountPercent), subtotal.value)
+})
+const grandTotal = computed(() => Math.max(0, subtotal.value + shippingFee.value - voucherDiscount.value))
 const qrBankInfo = getQrBankInfo()
 const previewQrImageUrl = computed(() => buildQrImageUrl({ code: 'GOALSTORE', total: grandTotal.value }))
 const isQrOrder = computed(() => isQrPaymentMethod(orderSuccess.value?.paymentMethod))
 const qrTransferContent = computed(() => buildQrTransferContent(orderSuccess.value))
 const orderQrImageUrl = computed(() => (isQrOrder.value && orderSuccess.value ? buildQrImageUrl(orderSuccess.value) : ''))
+
+function voucherDisabledReason(voucher: CustomerVoucherWalletItem) {
+  if (!voucher.claimed) return 'Bạn chưa nhận voucher này'
+  if (voucher.used) return 'Voucher này đã dùng rồi'
+  const minOrderAmount = toNumber(voucher.minOrderAmount)
+  if (subtotal.value < minOrderAmount) {
+    return `Áp dụng cho đơn từ ${formatCurrency(minOrderAmount)}`
+  }
+  return ''
+}
+
+function selectVoucher(voucherId?: number | null) {
+  const customerId = Number(getCustomerId())
+  if (!customerId) return
+
+  if (!voucherId) {
+    selectedVoucherId.value = null
+    clearSelectedVoucherForCustomer(customerId)
+    return
+  }
+
+  const voucher = voucherWallet.value.find((item) => Number(item.id) === Number(voucherId))
+  if (!voucher || voucherDisabledReason(voucher)) {
+    return
+  }
+
+  selectedVoucherId.value = Number(voucherId)
+  setSelectedVoucherForCustomer(customerId, Number(voucherId))
+}
+
+async function loadVoucherWallet(customerId: number) {
+  voucherWallet.value = await getCustomerVoucherWallet(customerId, subtotal.value)
+  const storedVoucherId = getSelectedVoucherForCustomer(customerId)
+  const matched = voucherWallet.value.find((item) => Number(item.id) === Number(storedVoucherId))
+  if (matched && !voucherDisabledReason(matched)) {
+    selectedVoucherId.value = Number(matched.id)
+  } else {
+    selectedVoucherId.value = null
+    clearSelectedVoucherForCustomer(customerId)
+  }
+}
 
 watch(selectedAddressKey, (value) => {
   if (value === 'new') {
@@ -482,6 +587,8 @@ async function loadCheckoutData() {
       selectedAddressKey.value = 'new'
       fillForm(null)
     }
+
+    await loadVoucherWallet(Number(customerId))
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Không thể tải thông tin thanh toán.'
   } finally {
@@ -551,12 +658,19 @@ async function placeOrder() {
       paymentMethod: paymentMethod.value,
       note: note.value.trim(),
       shippingFee: shippingFee.value,
-      discountAmount: 0,
+      discountAmount: voucherDiscount.value,
+      voucherId: selectedVoucherId.value,
       selectedItemIds: selectedCartItemIds.value,
     })
+    if (selectedVoucherId.value) {
+      markVoucherAsUsed(customerId, selectedVoucherId.value, orderSuccess.value)
+      clearSelectedVoucherForCustomer(customerId)
+    }
     setSelectedCartItemIds([])
     cart.value = { items: [], totalAmount: 0 }
     selectedCartItemIds.value = []
+    selectedVoucherId.value = null
+    voucherWallet.value = []
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Không thể đặt hàng. Vui lòng thử lại.'
@@ -602,6 +716,66 @@ onMounted(async () => {
 .checkout-empty-state p,
 .checkout-success-card > p {
   color: #666;
+}
+
+.checkout-voucher-box {
+  border: 1px solid #ececec;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.checkout-voucher-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.checkout-voucher-box__head h6 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.checkout-voucher-box__head a {
+  color: #111;
+  text-decoration: underline;
+  font-size: 12px;
+}
+
+.checkout-voucher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-voucher-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #ececec;
+  padding: 12px;
+}
+
+.checkout-voucher-item--active {
+  border-color: #111;
+}
+
+.checkout-voucher-item--disabled {
+  opacity: 0.6;
+}
+
+.checkout-voucher-item p,
+.checkout-voucher-empty {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 12px;
+}
+
+.checkout-voucher-item__value {
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .checkout-address-picker {

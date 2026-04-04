@@ -41,6 +41,10 @@ export type OrderResponse = {
   subtotal: number
   shippingFee: number
   discountAmount: number
+  voucherId?: number | null
+  voucherCode?: string | null
+  voucherName?: string | null
+  voucherPercent?: number | null
   total: number
   orderDate: string | null
   items: OrderItemResponse[]

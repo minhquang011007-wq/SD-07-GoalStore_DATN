@@ -16,6 +16,10 @@ public class CreateOrderRequest {
 
     private BigDecimal shippingFee;
     private BigDecimal discountAmount;
+    private Integer voucherId;
+    private String voucherCode;
+    private String voucherName;
+    private BigDecimal voucherPercent;
 
     private List<CreateOrderItemRequest> items;
 
@@ -89,6 +93,38 @@ public class CreateOrderRequest {
 
     public void setDiscountAmount(BigDecimal discountAmount) {
         this.discountAmount = discountAmount;
+    }
+
+    public Integer getVoucherId() {
+        return voucherId;
+    }
+
+    public void setVoucherId(Integer voucherId) {
+        this.voucherId = voucherId;
+    }
+
+    public String getVoucherCode() {
+        return voucherCode;
+    }
+
+    public void setVoucherCode(String voucherCode) {
+        this.voucherCode = voucherCode;
+    }
+
+    public String getVoucherName() {
+        return voucherName;
+    }
+
+    public void setVoucherName(String voucherName) {
+        this.voucherName = voucherName;
+    }
+
+    public BigDecimal getVoucherPercent() {
+        return voucherPercent;
+    }
+
+    public void setVoucherPercent(BigDecimal voucherPercent) {
+        this.voucherPercent = voucherPercent;
     }
 
     public List<CreateOrderItemRequest> getItems() {
