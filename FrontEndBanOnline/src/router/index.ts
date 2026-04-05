@@ -10,6 +10,7 @@ import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import AccountView from '@/views/AccountView.vue'
 import VoucherView from '@/views/VoucherView.vue'
+import VnpayReturnView from '@/views/VnpayReturnView.vue'
 import { getRole } from '@/shared/lib/auth'
 import { hydrateSessionFromUrl } from '@/shared/lib/cross-app-auth'
 
@@ -24,6 +25,7 @@ const router = createRouter({
     { path: '/orders', name: 'MyOrders', component: MyOrdersView },
     { path: '/account', name: 'Account', component: AccountView },
     { path: '/voucher', name: 'Voucher', component: VoucherView },
+    { path: '/payment/vnpay-return', name: 'VnpayReturn', component: VnpayReturnView, meta: { public: true } },
     { path: '/contact', name: 'Contact', component: ContactView },
     { path: '/login', name: 'Login', component: LoginView, meta: { public: true } },
     { path: '/register', name: 'Register', component: RegisterView, meta: { public: true } },

@@ -72,9 +72,6 @@ public class VnpayService {
         params.put("vnp_IpAddr", VnpayUtil.normalizeIpAddress(clientIp));
         params.put("vnp_CreateDate", VNPAY_DATE_FORMAT.format(now));
         params.put("vnp_ExpireDate", VNPAY_DATE_FORMAT.format(expiredAt));
-        if (qrOnly) {
-            params.put("vnp_BankCode", "VNPAYQR");
-        }
 
         String hashData = VnpayUtil.buildHashData(params);
         String secureHash = VnpayUtil.hmacSHA512(hashSecret, hashData);

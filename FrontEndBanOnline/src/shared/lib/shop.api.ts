@@ -1061,3 +1061,19 @@ export function getProductSummaryById(id: number | string) {
   const product = findProductById(id)
   return product ? getSummaryFromDetail(product) : null
 }
+
+export type VnpayCreatePaymentResponse = {
+  orderId: number
+  transactionRef: string
+  provider: string
+  qrOnly: boolean
+  expiresAt: string
+  paymentUrl: string
+}
+
+export async function createVnpayPaymentUrl(orderId: number, qrOnly = false) {
+  return apiRequest<VnpayCreatePaymentResponse>(
+    `/api/public/payments/vnpay/${orderId}/payment-url?qrOnly=${qrOnly}`,
+    { skipAuth: true },
+  )
+}

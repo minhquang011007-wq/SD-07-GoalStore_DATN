@@ -229,3 +229,13 @@ export type PublicProductSearchParams = {
   saleOnly?: boolean
   sort?: 'newest' | 'price-asc' | 'price-desc' | 'price_asc' | 'price_desc' | 'best_selling'
 }
+
+
+export type VnpayPaymentUrlResponse = {
+  orderId?: number | null
+  transactionRef?: string | null
+  paymentUrl?: string | null
+  provider?: string | null
+  expiresAt?: string | null
+  qrOnly?: boolean | null
+}

@@ -65,7 +65,7 @@ public class VnpayController {
 
     @GetMapping("/return")
     public ResponseEntity<Void> handleReturn(@RequestParam Map<String, String> params) {
-        VnpayProcessResult result = vnpayService.verifyCallback(params);
+        VnpayProcessResult result = vnpayService.processIpnCallback(params);
 
         String paymentStatus = !result.isValidSignature()
                 ? "invalid"
@@ -80,7 +80,7 @@ public class VnpayController {
                 .queryParamIfPresent("responseCode", java.util.Optional.ofNullable(result.getResponseCode()))
                 .queryParamIfPresent("transactionStatus", java.util.Optional.ofNullable(result.getTransactionStatus()))
                 .queryParam("message", result.getMessage())
-                .build(true)
+                .encode()
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();

@@ -208,6 +208,16 @@
                   {{ showReturnForm ? 'Đóng yêu cầu trả hàng' : 'Yêu cầu trả hàng' }}
                 </button>
 
+                <button
+                  v-if="canRepay(selectedOrder)"
+                  type="button"
+                  class="primary-btn outline-btn"
+                  :disabled="actionLoading"
+                  @click="handleRepayOrder"
+                >
+                  {{ actionLoading ? 'Đang tạo link...' : 'Thanh toán lại qua VNPAY' }}
+                </button>
+
                 <RouterLink to="/shop" class="primary-btn">Mua lại</RouterLink>
               </div>
 
@@ -244,17 +254,20 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { getCustomerId, getDisplayName, isCustomerLoggedIn } from '@/shared/lib/auth'
 import {
   cancelCustomerOrder,
   createOrderReturn,
+  createVnpayPaymentUrl,
   getCustomerOrders,
   getOrderDetail,
   resolveImageUrl,
 } from '@/shared/lib/shop.api'
 import { buildQrImageUrl, buildQrTransferContent, getQrBankInfo, isQrPaymentMethod } from '@/shared/lib/payment'
 import type { OrderItemSummary, OrderResponse, ReturnResponse } from '@/shared/lib/shop.types'
+
+const route = useRoute()
 
 const loading = ref(true)
 const actionLoading = ref(false)
@@ -327,7 +340,7 @@ function formatPaymentMethod(value?: string | null) {
     QR: 'Thanh toán QR ngân hàng',
     BANKING: 'Chuyển khoản',
     MOMO: 'Ví MoMo',
-    VNPAY: 'VNPay',
+    VNPAY: 'VNPay online',
   }
   return value ? map[value] || value : 'Chưa xác định'
 }
@@ -336,8 +349,8 @@ function formatPaymentStatus(value?: string | null, paymentMethod?: string | nul
   const normalizedMethod = String(paymentMethod || '').toUpperCase()
   const normalizedStatus = String(value || '').toUpperCase()
 
-  if (normalizedMethod === 'QR' && (normalizedStatus === 'PENDING' || normalizedStatus === 'UNPAID')) {
-    return 'Chờ khách chuyển khoản'
+  if ((normalizedMethod === 'QR' || normalizedMethod === 'VNPAY') && (normalizedStatus === 'PENDING' || normalizedStatus === 'UNPAID')) {
+    return normalizedMethod === 'VNPAY' ? 'Chờ thanh toán qua VNPAY' : 'Chờ khách chuyển khoản'
   }
 
   const map: Record<string, string> = {
@@ -412,12 +425,49 @@ watch(selectedOrder, () => {
   returnForm.value = { reason: '', note: '' }
 })
 
+watch(() => route.query.status, (value) => {
+  if (!value) return
+  const status = String(value)
+  if (status === 'success') {
+    message.value = 'VNPAY đã trả kết quả thành công. Hệ thống sẽ tự cập nhật đơn nếu IPN về thành công.'
+  } else if (status === 'failed') {
+    error.value = 'Thanh toán VNPAY chưa thành công hoặc đã bị hủy.'
+  } else if (status === 'invalid') {
+    error.value = 'Kết quả trả về từ VNPAY không hợp lệ.'
+  }
+}, { immediate: true })
+
 function canCancel(order: OrderResponse) {
   return order.status === 'MOI' || order.status === 'DANG_XU_LY'
 }
 
 function canReturn(order: OrderResponse) {
   return order.status === 'HOAN_TAT'
+}
+
+function canRepay(order: OrderResponse) {
+  const paymentMethod = String(order.paymentMethod || '').toUpperCase()
+  const paymentStatus = String(order.paymentStatus || '').toUpperCase()
+  const orderStatus = String(order.status || '').toUpperCase()
+  return paymentMethod === 'VNPAY' && paymentStatus !== 'PAID' && orderStatus !== 'HUY' && orderStatus !== 'TRA_HANG'
+}
+
+async function handleRepayOrder() {
+  if (!selectedOrder.value?.id) return
+  error.value = ''
+  message.value = ''
+  actionLoading.value = true
+  try {
+    const payment = await createVnpayPaymentUrl(Number(selectedOrder.value.id), { qrOnly: false })
+    if (!payment?.paymentUrl) {
+      throw new Error('Không nhận được URL thanh toán từ VNPAY')
+    }
+    window.location.href = payment.paymentUrl
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || 'Không thể tạo lại liên kết thanh toán VNPAY.'
+  } finally {
+    actionLoading.value = false
+  }
 }
 
 async function loadOrders() {
@@ -444,8 +494,12 @@ async function loadOrders() {
   try {
     const response = await getCustomerOrders(customerId)
     orders.value = response
-    if (response.length) {
-      selectedOrder.value = await getOrderDetail(Number(response[0].id))
+    const preferredOrderId = Number(route.query.orderId || 0)
+    const preferred = preferredOrderId
+      ? response.find((item) => Number(item.id) === preferredOrderId)
+      : response[0]
+    if (preferred?.id) {
+      selectedOrder.value = await getOrderDetail(Number(preferred.id))
     }
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Không thể tải danh sách đơn hàng.'

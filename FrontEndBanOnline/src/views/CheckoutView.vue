@@ -40,6 +40,7 @@
           <p>
             GoalStore đã ghi nhận đơn hàng của bạn.
             <template v-if="isQrOrder">Vui lòng quét mã QR bên dưới để chuyển khoản đúng số tiền của đơn.</template>
+            <template v-else-if="isVnpayOrder">Đơn này dùng cổng VNPAY. Nếu chưa được chuyển trang thanh toán, hãy vào Theo dõi đơn hàng để thanh toán lại.</template>
             <template v-else>Nhân viên sẽ liên hệ sớm để xác nhận và giao hàng.</template>
           </p>
 
@@ -210,21 +211,21 @@
 
                   <div v-if="paymentMethod === 'QR'" class="checkout-qr-card">
                     <div>
-                      <p class="checkout-qr-card__eyebrow">Xem trước mã QR</p>
-                      <h5>Khách sẽ quét QR sau khi tạo đơn</h5>
+                      <p class="checkout-qr-card__eyebrow">Thanh toán tự động</p>
+                      <h5>GoalStore sẽ chuyển bạn sang cổng VNPAY QR</h5>
                       <p>
-                        Mã QR sẽ tự sinh theo đúng tổng tiền đơn hàng.
-                        Nội dung chuyển khoản sau khi đặt đơn sẽ là mã đơn để dễ đối soát.
+                        Sau khi tạo đơn, hệ thống sẽ mở trang thanh toán VNPAY.
+                        Khi khách quét QR thành công, backend sẽ tự nhận IPN và cập nhật trạng thái thanh toán.
                       </p>
                       <ul class="checkout-qr-meta">
-                        <li><span>Ngân hàng</span><strong>{{ qrBankInfo.bankId }}</strong></li>
-                        <li><span>Số tài khoản</span><strong>{{ qrBankInfo.accountNo }}</strong></li>
-                        <li><span>Chủ tài khoản</span><strong>{{ qrBankInfo.accountName }}</strong></li>
-                        <li><span>Tạm tính cần thanh toán</span><strong>{{ formatCurrency(grandTotal) }}</strong></li>
+                        <li><span>Cổng thanh toán</span><strong>VNPAY</strong></li>
+                        <li><span>Hình thức</span><strong>QR động tự xác nhận</strong></li>
+                        <li><span>Số tiền tạm tính</span><strong>{{ formatCurrency(grandTotal) }}</strong></li>
+                        <li><span>Kết quả</span><strong>Tự đổi sang Đã thanh toán</strong></li>
                       </ul>
                     </div>
                     <div class="checkout-qr-card__image">
-                      <img :src="previewQrImageUrl" alt="QR thanh toán xem trước" />
+                      <img :src="previewQrImageUrl" alt="Minh họa QR VNPAY" />
                     </div>
                   </div>
 
@@ -308,7 +309,7 @@
                   </p>
 
                   <button type="submit" class="site-btn" :disabled="placing">
-                    {{ placing ? 'Đang đặt hàng...' : paymentMethod === 'QR' ? 'TẠO ĐƠN & HIỂN THỊ QR' : 'ĐẶT HÀNG' }}
+                    {{ placing ? 'Đang xử lý...' : paymentMethod === 'QR' ? 'TẠO ĐƠN & THANH TOÁN QR' : paymentMethod === 'VNPAY' ? 'ĐẾN CỔNG VNPAY' : 'ĐẶT HÀNG' }}
                   </button>
 
                   <RouterLink to="/cart" class="checkout-back-link">Quay lại giỏ hàng</RouterLink>
@@ -328,6 +329,7 @@ import { getCustomerId, getDisplayName, isCustomerLoggedIn } from '@/shared/lib/
 import {
   checkoutCart,
   createCustomerAddress,
+  createVnpayPaymentUrl,
   getCart,
   getCustomerAddresses,
   getSelectedCartItemIds,
@@ -354,7 +356,7 @@ const error = ref('')
 const cart = ref<CartResponse>({ items: [], totalAmount: 0 })
 const addresses = ref<CustomerAddress[]>([])
 const selectedAddressKey = ref('new')
-const paymentMethod = ref<'COD' | 'QR' | 'BANKING' | 'MOMO' | 'VNPAY'>('COD')
+const paymentMethod = ref<'COD' | 'QR' | 'VNPAY'>('COD')
 const note = ref('')
 const agreeTerms = ref(true)
 const orderSuccess = ref<OrderResponse | null>(null)
@@ -379,24 +381,9 @@ const paymentOptions = [
     description: 'Phù hợp khi bạn muốn kiểm tra hàng trước khi thanh toán.',
   },
   {
-    value: 'QR' as const,
-    label: 'Thanh toán bằng QR ngân hàng',
-    description: 'Tạo đơn trước, sau đó quét QR VietQR đúng số tiền và mã đơn.',
-  },
-  {
-    value: 'BANKING' as const,
-    label: 'Chuyển khoản ngân hàng',
-    description: 'Xác nhận chuyển khoản nhanh sau khi đặt đơn.',
-  },
-  {
-    value: 'MOMO' as const,
-    label: 'Ví MoMo',
-    description: 'Thanh toán nhanh trên điện thoại, thao tác đơn giản.',
-  },
-  {
-    value: 'VNPAY' as const,
-    label: 'VNPay',
-    description: 'Hỗ trợ thẻ ATM, QR và nhiều ngân hàng nội địa.',
+  value: 'QR' as const,
+  label: 'Thanh toán qua VNPAY (ưu tiên QR)',
+  description: 'Chuyển sang cổng VNPAY, tại đó bạn có thể chọn QR hoặc ngân hàng phù hợp.',
   },
 ]
 
@@ -413,9 +400,6 @@ function formatPaymentMethod(value?: string | null) {
   const map: Record<string, string> = {
     COD: 'Thanh toán khi nhận hàng',
     QR: 'Thanh toán QR ngân hàng',
-    BANKING: 'Chuyển khoản ngân hàng',
-    MOMO: 'Ví MoMo',
-    VNPAY: 'VNPay',
   }
   return value ? map[value] || value : 'Chưa xác định'
 }
@@ -475,6 +459,7 @@ const grandTotal = computed(() => Math.max(0, subtotal.value + shippingFee.value
 const qrBankInfo = getQrBankInfo()
 const previewQrImageUrl = computed(() => buildQrImageUrl({ code: 'GOALSTORE', total: grandTotal.value }))
 const isQrOrder = computed(() => isQrPaymentMethod(orderSuccess.value?.paymentMethod))
+const isVnpayOrder = computed(() => String(orderSuccess.value?.paymentMethod || '').toUpperCase() === 'VNPAY')
 const qrTransferContent = computed(() => buildQrTransferContent(orderSuccess.value))
 const orderQrImageUrl = computed(() => (isQrOrder.value && orderSuccess.value ? buildQrImageUrl(orderSuccess.value) : ''))
 
@@ -671,6 +656,21 @@ async function placeOrder() {
     selectedCartItemIds.value = []
     selectedVoucherId.value = null
     voucherWallet.value = []
+
+    const shouldRedirectToGateway = paymentMethod.value === 'QR' || paymentMethod.value === 'VNPAY'
+    if (shouldRedirectToGateway && orderSuccess.value?.id) {
+      try {
+        const payment = await createVnpayPaymentUrl(Number(orderSuccess.value.id))
+        if (payment?.paymentUrl) {
+          window.location.href = payment.paymentUrl
+          return
+        }
+        throw new Error('Không nhận được URL thanh toán từ VNPAY')
+      } catch (gatewayError: any) {
+        error.value = gatewayError?.response?.data?.message || gatewayError?.message || 'Đơn đã tạo nhưng chưa chuyển tới cổng thanh toán. Bạn hãy vào Theo dõi đơn hàng để thanh toán lại.'
+      }
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Không thể đặt hàng. Vui lòng thử lại.'
