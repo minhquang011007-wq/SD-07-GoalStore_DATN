@@ -63,23 +63,8 @@ const router = createRouter({
           meta: { roles: ["ADMIN"], moduleOwner: "voucher" },
         },
         {
-          path: "sales/deals",
-          component: () => import("@/modules/sales/views/DealsView.vue"),
-          meta: { roles: ["ADMIN", "SALES"], moduleOwner: "sales" },
-        },
-        {
-          path: "sales/tasks",
-          component: () => import("@/modules/sales/views/TasksView.vue"),
-          meta: { roles: ["ADMIN", "SALES"], moduleOwner: "sales" },
-        },
-        {
           path: "sales/customers",
           component: () => import("@/modules/customer/views/CustomerListView.vue"),
-          meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
-        },
-        {
-          path: "sales/companies",
-          component: () => import("@/modules/customer/views/CompaniesView.vue"),
           meta: { roles: ["ADMIN", "SALES"], moduleOwner: "customer" },
         },
         {

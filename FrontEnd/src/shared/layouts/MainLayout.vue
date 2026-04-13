@@ -7,9 +7,6 @@ import { Shield } from "lucide-vue-next"
 import {
   LayoutDashboard,
   Users,
-  Building2,
-  TrendingUp,
-  CheckSquare,
   BarChart3,
   Settings,
   BookOpen,
@@ -37,15 +34,12 @@ const isMobile = ref(false)
 const role = ref<string>(localStorage.getItem("role") || "")
 
 const navigation: NavItem[] = [
-  { name: "Admin Home", path: "/admin", icon: LayoutDashboard, roles: ["ADMIN"], note: "Chung" },
+  { name: "Dashboard", path: "/admin", icon: LayoutDashboard, roles: ["ADMIN"], note: "Thống kê tổng quan" },
   { name: "Sales Home", path: "/sales", icon: LayoutDashboard, roles: ["SALES"], note: "Chung" },
   { name: "Inventory Home", path: "/inventory", icon: LayoutDashboard, roles: ["INVENTORY"], note: "Chung" },
 
   { name: "Products", path: "/inventory/products", icon: Boxes, roles: ["ADMIN", "INVENTORY"], note: "Trang quản lý kho hàng" },
   { name: "Customers", path: "/sales/customers", icon: Users, roles: ["ADMIN", "SALES"], note: "Trang quản lý khách hàng" },
-  { name: "Companies", path: "/sales/companies", icon: Building2, roles: ["ADMIN", "SALES"], note: "Module Customer" },
-  { name: "Deals", path: "/sales/deals", icon: TrendingUp, roles: ["ADMIN", "SALES"], note: "Module Sales" },
-  { name: "Tasks", path: "/sales/tasks", icon: CheckSquare, roles: ["ADMIN", "SALES"], note: "Module Sales" },
   { name: "Orders", path: "/admin/orders", icon: CreditCard, roles: ["ADMIN"], note: "Trang quản lý đơn hàng" },
   { name: "Vouchers", path: "/admin/vouchers", icon: TicketPercent, roles: ["ADMIN"], note: "Trang quản lý voucher" },
   { name: "Reports", path: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], note: "Trang quản lý báo cáo" },
@@ -116,7 +110,7 @@ onUnmounted(() => {
       <div class="p-4 border-b flex items-center justify-between">
         <div class="flex items-center gap-2 overflow-hidden">
           <div>
-            <h3 v-if="sidebarOpen" class="text-sm font-semibold">GoalStore </h3>
+            <h3 v-if="sidebarOpen" class="text-sm font-semibold">GoalStore</h3>
           </div>
         </div>
 

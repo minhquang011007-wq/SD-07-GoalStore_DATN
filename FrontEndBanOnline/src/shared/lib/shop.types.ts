@@ -239,3 +239,37 @@ export type VnpayPaymentUrlResponse = {
   expiresAt?: string | null
   qrOnly?: boolean | null
 }
+
+export type CustomerDashboardMonthlyMetric = {
+  month: number
+  label: string
+  value: number
+}
+
+export type CustomerDashboardStatusMetric = {
+  status: string
+  label: string
+  count: number
+}
+
+export type CustomerDashboardResponse = {
+  customerId: number
+  customerName: string
+  loaiKhach?: string | null
+  loyaltyPoints?: number | null
+  summary: {
+    totalOrders: number
+    completedOrders: number
+    cancelledOrders: number
+    returnOrders: number
+    totalSpent: number
+    averageOrderValue: number
+  }
+  wallet: {
+    claimed: number
+    used: number
+    available: number
+  }
+  spendingByMonth: CustomerDashboardMonthlyMetric[]
+  orderStatusBreakdown: CustomerDashboardStatusMetric[]
+}

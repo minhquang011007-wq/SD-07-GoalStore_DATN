@@ -5,6 +5,7 @@ import type {
   CheckoutOrderRequest,
   CustomerAddress,
   CustomerAddressPayload,
+  CustomerDashboardResponse,
   CustomerProfile,
   CustomerProfilePayload,
   OrderResponse,
@@ -1076,4 +1077,116 @@ export async function createVnpayPaymentUrl(orderId: number, qrOnly = false) {
     `/api/public/payments/vnpay/${orderId}/payment-url?qrOnly=${qrOnly}`,
     { skipAuth: true },
   )
+}
+
+function normalizeCustomerDashboard(data: any): CustomerDashboardResponse {
+  return {
+    customerId: toNumber(data?.customerId),
+    customerName: String(data?.customerName || 'Khách hàng'),
+    loaiKhach: String(data?.loaiKhach || 'THUONG'),
+    loyaltyPoints: toNumber(data?.loyaltyPoints),
+    summary: {
+      totalOrders: toNumber(data?.summary?.totalOrders),
+      completedOrders: toNumber(data?.summary?.completedOrders),
+      cancelledOrders: toNumber(data?.summary?.cancelledOrders),
+      returnOrders: toNumber(data?.summary?.returnOrders),
+      totalSpent: toNumber(data?.summary?.totalSpent),
+      averageOrderValue: toNumber(data?.summary?.averageOrderValue),
+    },
+    wallet: {
+      claimed: toNumber(data?.wallet?.claimed),
+      used: toNumber(data?.wallet?.used),
+      available: toNumber(data?.wallet?.available),
+    },
+    spendingByMonth: Array.isArray(data?.spendingByMonth)
+      ? data.spendingByMonth.map((item: any) => ({
+          month: toNumber(item?.month),
+          label: String(item?.label || ''),
+          value: toNumber(item?.value),
+        }))
+      : [],
+    orderStatusBreakdown: Array.isArray(data?.orderStatusBreakdown)
+      ? data.orderStatusBreakdown.map((item: any) => ({
+          status: String(item?.status || ''),
+          label: String(item?.label || ''),
+          count: toNumber(item?.count),
+        }))
+      : [],
+  }
+}
+
+export async function getCustomerDashboard(customerId: number, year?: number) {
+  try {
+    const suffix = year ? `?year=${year}` : ''
+    const data = await apiRequest<CustomerDashboardResponse>(`/api/dashboard/customer/${customerId}${suffix}`)
+    return normalizeCustomerDashboard(data)
+  } catch (error) {
+    if (!shouldUseLocalFallback(error)) {
+      throw error
+    }
+
+    const profile = getCustomerProfileLocal(customerId)
+    const orders = readOrders().filter((item) => Number(item.customerId) === Number(customerId))
+    const targetYear = year || new Date().getFullYear()
+    const filteredOrders = orders.filter((item) => {
+      if (!item.orderDate) return false
+      const date = new Date(item.orderDate)
+      return !Number.isNaN(date.getTime()) && date.getFullYear() === targetYear
+    })
+    const wallet = readJsonStorage<any[]>(`goalstore_customer_vouchers_${customerId}`, [])
+
+    const spendingByMonth = Array.from({ length: 12 }, (_, index) => ({
+      month: index + 1,
+      label: `T${index + 1}`,
+      value: 0,
+    }))
+
+    for (const order of filteredOrders) {
+      if (!order.orderDate) continue
+      const date = new Date(order.orderDate)
+      if (Number.isNaN(date.getTime())) continue
+      const monthIndex = date.getMonth()
+      spendingByMonth[monthIndex].value += toNumber(order.total)
+    }
+
+    const summary = {
+      totalOrders: filteredOrders.length,
+      completedOrders: filteredOrders.filter((item) => item.status === 'HOAN_TAT').length,
+      cancelledOrders: filteredOrders.filter((item) => item.status === 'HUY').length,
+      returnOrders: filteredOrders.filter((item) => item.status === 'TRA_HANG').length,
+      totalSpent: filteredOrders.reduce((total, item) => total + toNumber(item.total), 0),
+      averageOrderValue: filteredOrders.length
+        ? Math.round(filteredOrders.reduce((total, item) => total + toNumber(item.total), 0) / filteredOrders.length)
+        : 0,
+    }
+
+    const statusCodes = ['MOI', 'DANG_XU_LY', 'DANG_GIAO', 'HOAN_TAT', 'HUY', 'TRA_HANG']
+    const statusLabels: Record<string, string> = {
+      MOI: 'Mới',
+      DANG_XU_LY: 'Đang xử lý',
+      DANG_GIAO: 'Đang giao',
+      HOAN_TAT: 'Hoàn tất',
+      HUY: 'Hủy',
+      TRA_HANG: 'Trả hàng',
+    }
+
+    return normalizeCustomerDashboard({
+      customerId,
+      customerName: profile.ten || 'Khách hàng',
+      loaiKhach: profile.loaiKhach || 'THUONG',
+      loyaltyPoints: toNumber(profile.diemTichLuy),
+      summary,
+      wallet: {
+        claimed: wallet.length,
+        used: wallet.filter((item) => item?.usedAt).length,
+        available: wallet.filter((item) => !item?.usedAt).length,
+      },
+      spendingByMonth,
+      orderStatusBreakdown: statusCodes.map((status) => ({
+        status,
+        label: statusLabels[status],
+        count: filteredOrders.filter((item) => item.status === status).length,
+      })),
+    })
+  }
 }
