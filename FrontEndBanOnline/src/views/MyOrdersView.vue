@@ -124,17 +124,17 @@
 
               <div class="order-summary-grid">
                 <div class="order-summary-box">
-                  <span>Thanh toán</span>
+                  <span>Thanh toán: </span>
                   <strong>{{ formatPaymentMethod(selectedOrder.paymentMethod) }}</strong>
                   <p>Trạng thái: {{ formatPaymentStatus(selectedOrder.paymentStatus, selectedOrder.paymentMethod) }}</p>
                 </div>
                 <div class="order-summary-box">
-                  <span>Người nhận</span>
+                  <span>Người nhận: </span>
                   <strong>{{ selectedOrder.receiverName || 'Chưa cập nhật' }}</strong>
                   <p>{{ selectedOrder.receiverPhone || 'Chưa có số điện thoại' }}</p>
                 </div>
                 <div class="order-summary-box order-summary-box--full">
-                  <span>Địa chỉ giao hàng</span>
+                  <span>Địa chỉ giao hàng: </span>
                   <strong>{{ selectedOrder.shippingAddress || 'Chưa có địa chỉ' }}</strong>
                   <p v-if="selectedOrder.note">Ghi chú: {{ selectedOrder.note }}</p>
                 </div>
@@ -213,7 +213,7 @@
                   type="button"
                   class="primary-btn outline-btn"
                   :disabled="actionLoading"
-                  @click="handleRepayOrder"
+                  
                 >
                   {{ actionLoading ? 'Đang tạo link...' : 'Thanh toán lại qua VNPAY' }}
                 </button>
@@ -452,23 +452,23 @@ function canRepay(order: OrderResponse) {
   return paymentMethod === 'VNPAY' && paymentStatus !== 'PAID' && orderStatus !== 'HUY' && orderStatus !== 'TRA_HANG'
 }
 
-async function handleRepayOrder() {
-  if (!selectedOrder.value?.id) return
-  error.value = ''
-  message.value = ''
-  actionLoading.value = true
-  try {
-    const payment = await createVnpayPaymentUrl(Number(selectedOrder.value.id), { qrOnly: false })
-    if (!payment?.paymentUrl) {
-      throw new Error('Không nhận được URL thanh toán từ VNPAY')
-    }
-    window.location.href = payment.paymentUrl
-  } catch (e: any) {
-    error.value = e?.response?.data?.message || e?.message || 'Không thể tạo lại liên kết thanh toán VNPAY.'
-  } finally {
-    actionLoading.value = false
-  }
-}
+// async function handleRepayOrder() {
+//   if (!selectedOrder.value?.id) return
+//   error.value = ''
+//   message.value = ''
+//   actionLoading.value = true
+//   try {
+//     const payment = await createVnpayPaymentUrl(Number(selectedOrder.value.id), { qrOnly: false })
+//     if (!payment?.paymentUrl) {
+//       throw new Error('Không nhận được URL thanh toán từ VNPAY')
+//     }
+//     window.location.href = payment.paymentUrl
+//   } catch (e: any) {
+//     error.value = e?.response?.data?.message || e?.message || 'Không thể tạo lại liên kết thanh toán VNPAY.'
+//   } finally {
+//     actionLoading.value = false
+//   }
+// }
 
 async function loadOrders() {
   loading.value = true

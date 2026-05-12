@@ -110,7 +110,7 @@ onUnmounted(() => {
       </div>
       <div id="mobile-menu-wrap"></div>
       <div class="offcanvas__text">
-        <p>GoalStore - Giày bóng đá chính hãng | Đổi trả 7 ngày | Giao nhanh toàn quốc</p>
+        <p>GoalStore - Quần áo bóng đá chính hãng | Đổi trả 7 ngày | Giao nhanh toàn quốc</p>
       </div>
     </div>
 
@@ -120,7 +120,7 @@ onUnmounted(() => {
           <div class="row">
             <div class="col-lg-6 col-md-7">
               <div class="header__top__left">
-                <p>GoalStore - Giày bóng đá chính hãng | Đổi trả 7 ngày | Giao nhanh toàn quốc</p>
+                <p>GoalStore - Quần áo bóng đá chính hãng | Đổi trả 7 ngày | Giao nhanh toàn quốc</p>
               </div>
             </div>
             <div class="col-lg-6 col-md-5">

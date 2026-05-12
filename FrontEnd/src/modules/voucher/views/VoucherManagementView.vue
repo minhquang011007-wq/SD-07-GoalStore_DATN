@@ -3,7 +3,6 @@
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-slate-900">Quản lý voucher</h1>
-        <p class="text-sm text-slate-500">Admin tạo, sửa, bật tắt và xóa mềm voucher cho bên bán hàng online.</p>
       </div>
       <button
         class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
@@ -94,7 +93,6 @@
       <div class="rounded-xl border bg-white">
         <div class="border-b px-4 py-3">
           <h2 class="font-semibold text-slate-900">{{ editingId ? 'Cập nhật voucher' : 'Tạo voucher mới' }}</h2>
-          <p class="text-xs text-slate-500">Tạo các voucher như GOAL10, GOAL20, GOAL30... để khách tự vào nhận.</p>
         </div>
 
         <div class="space-y-4 p-4">

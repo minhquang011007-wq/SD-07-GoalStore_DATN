@@ -209,7 +209,7 @@
                     </label>
                   </div>
 
-                  <div v-if="paymentMethod === 'QR'" class="checkout-qr-card">
+                  <!-- <div v-if="paymentMethod === 'QR'" class="checkout-qr-card">
                     <div>
                       <p class="checkout-qr-card__eyebrow">Thanh toán tự động</p>
                       <h5>GoalStore sẽ chuyển bạn sang cổng VNPAY QR</h5>
@@ -227,7 +227,7 @@
                     <div class="checkout-qr-card__image">
                       <img :src="previewQrImageUrl" alt="Minh họa QR VNPAY" />
                     </div>
-                  </div>
+                  </div> -->
 
                   <label class="checkout-agreement">
                     <input v-model="agreeTerms" type="checkbox" />
