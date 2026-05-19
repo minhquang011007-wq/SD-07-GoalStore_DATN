@@ -127,6 +127,13 @@ async function handleLogin() {
               />
             </div>
 
+            <router-link
+                to="/forgot-password"
+                class="text-blue-500"
+            >
+                Quên mật khẩu?
+            </router-link>
+
             <div v-if="error" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {{ error }}
             </div>

@@ -13,6 +13,8 @@ import VoucherView from '@/views/VoucherView.vue'
 import VnpayReturnView from '@/views/VnpayReturnView.vue'
 import { getRole } from '@/shared/lib/auth'
 import { hydrateSessionFromUrl } from '@/shared/lib/cross-app-auth'
+import ForgotPasswordView from "@/views/ForgotPasswordView.vue";
+import ResetPasswordView from "@/views/ResetPasswordView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -29,6 +31,8 @@ const router = createRouter({
     { path: '/contact', name: 'Contact', component: ContactView },
     { path: '/login', name: 'Login', component: LoginView, meta: { public: true } },
     { path: '/register', name: 'Register', component: RegisterView, meta: { public: true } },
+    { path: "/forgot-password", component: ForgotPasswordView},
+    { path: "/reset-password", component: ResetPasswordView}
   ],
 })
 
